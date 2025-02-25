@@ -4,6 +4,7 @@ open Debugger.Utils
 module PC = Js2jsil_lib.JS2GIL_ParserAndCompiler
 
 module Make
+    (Gil : Gillian.Debugger.Lifter.Gil_fallback_lifter.Gil_lifter_with_state)
     (Verification : Gillian.Abstraction.Verifier.S with type annot = PC.Annot.t) =
 struct
   module Gil_lifter =

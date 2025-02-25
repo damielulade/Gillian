@@ -2,6 +2,7 @@ open Gillian
 open Js2jsil_lib.JS2GIL_ParserAndCompiler
 
 module Make
+    (Gil : Gillian.Debugger.Lifter.Gil_fallback_lifter.Gil_lifter_with_state)
     (V : Abstraction.Verifier.S with type annot = Gil_syntax.Annot.Basic.t) :
   Debugger.Lifter.S
     with type memory = Semantics.Symbolic.t
