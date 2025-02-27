@@ -3,16 +3,77 @@ open Semantics
 open Debugger.Utils
 module PC = Js2jsil_lib.JS2GIL_ParserAndCompiler
 
+(** Logging report ID *)
+type id = Gillian.Logging.Report_id.t [@@deriving yojson, show]
+
 module Make
     (Gil : Gillian.Debugger.Lifter.Gil_fallback_lifter.Gil_lifter_with_state)
-    (Verification : Gillian.Abstraction.Verifier.S with type annot = PC.Annot.t) =
+    (V : Gillian.Abstraction.Verifier.S with type annot = PC.Annot.t) =
 struct
-  module Gil_lifter =
-    Gillian.Debugger.Lifter.Gil_lifter.Make (Semantics.Symbolic) (PC)
-      (Verification)
+  open Exec_map (* The map of the execution of a function *)
+  module CmdReport = V.SAInterpreter.Logging.ConfigReport
 
-  include Gil_lifter
+  type memory = Semantics.Symbolic.t
+  type memory_error = Semantics.Symbolic.err_t
+  type tl_ast = PC.tl_ast
+  type annot = PC.Annot.t
+  type cmd_report = CmdReport.t
+  type init_data = PC.init_data
+  type pc_err = PC.err
 
+  (** Fallback GIL lifter *)
+  module Gil_lifter = Gil.Lifter
+
+  (** Tuples of command identifier and ooptional branch case *)
+  type _branch_data = id * Branch_case.t option [@@deriving yojson]
+
+  (** Execution data *)
+  type exec_data = cmd_report Gillian.Debugger.Lifter.executed_cmd_data
+  [@@deriving yojson]
+
+  type _stack_direction = In | Out of id [@@deriving yojson]
+
+  (** Step arguments: optional ID, optional branch case type, and path of branch types taken so far *)
+  type step_args = id option * Branch_case.t option * Branch_case.path
+
+  type _ Effect.t += Step : step_args -> exec_data Effect.t
+
+  (**  *)
+  type _cmd_data = {
+    id : id;
+    all_ids : id list;
+    display : string;
+    matches : Match_map.matching list;
+    errorss : string list;
+    submap : id submap;
+    prev : (id * Branch_case.t option) option;
+    callers : id list;
+    func_return_label : (string * int) option;
+    loc : (string * int) option;
+  }
+  [@@deriving yojson]
+
+  (** Lifter type (or state), not complete. *)
+  type t = { proc_name : string (* NOT COMPLETE *) } [@@deriving to_yojson]
+
+  let init ~proc_name ~all_procs:_ _tl_ast _prog = failwith proc_name
+
+  let init_exn ~proc_name ~all_procs tl_ast prog =
+    match init ~proc_name ~all_procs tl_ast prog with
+    | None -> failwith "init: JSLifter needs a tl_ast!"
+    | Some x -> x
+
+  let step_branch _state _id _case = failwith "undefined"
+  let step_in _state _id = failwith "undefined"
+  let step_over _state _id = failwith "undefined"
+  let step_back _state _id = failwith "undefined"
+  let continue _state _id = failwith "undefined"
+  let step_out _state _id = failwith "undefined"
+  let continue_back _state _id = failwith "undefined"
+  let dump = failwith "undefined"
+  let get_matches_at_id = failwith "undefined"
+  let memory_error_to_exception_info = failwith "undefined"
+  let parse_and_compile_files = failwith "undefined"
   let to_str pp = Fmt.to_to_string (Fmt.hbox pp)
 
   (* TODO: All of this node stuff should be refactored to hide the scope id *)
