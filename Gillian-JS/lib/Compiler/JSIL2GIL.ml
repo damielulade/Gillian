@@ -489,7 +489,7 @@ let jsil2core_prog (prog : EProg.t) : ('a, string) GProg.t =
       Hashtbl.add new_procs proc'.proc_name proc')
     prog.procs;
 
-  let result : (Annot.Basic.t, string) GProg.t =
+  let result : (JS_Annot.t, string) GProg.t =
     GProg.make ~imports:prog.imports
       ~preds:(translate_tbl prog.preds jsil2gil_pred)
       ~lemmas:(translate_tbl prog.lemmas jsil2gil_lemma)

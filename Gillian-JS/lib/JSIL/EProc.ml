@@ -1,4 +1,4 @@
-module Annot = Gillian.Gil_syntax.Annot.Basic
+module Annot = JS_Annot
 module Flag = Gillian.Gil_syntax.Flag
 
 (* JSIL procedures extended with string labels *)
