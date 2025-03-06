@@ -3813,7 +3813,17 @@ let rec translate_expr tr_ctx e :
                 (*   x_pv := i__putValue (x1, x2_v) with err         *);
               ])
       in
-
+      let rec set_final_annot cs =
+        match cs with
+        | [] -> []
+        | [ (annot, str, cmd) ] ->
+            let updated_annot =
+              { annot with JS_Annot.cmd_kind = Normal true }
+            in
+            [ (updated_annot, str, cmd) ]
+        | hd :: tl -> hd :: set_final_annot tl
+      in
+      let cmds = set_final_annot cmds in
       let cmds = cmds in
       let errs = errs1 @ errs2 @ errs_x2_v @ [ x_cae; x_pv ] in
       (cmds, PVar x2_v, errs)
