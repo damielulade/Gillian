@@ -1,4 +1,6 @@
 (library
  (name debugging)
- (libraries gillian semantics js2jsil_lib)
- (flags :standard -open Gillian))
+ (libraries yojson gillian semantics js2jsil_lib)
+ (flags :standard -open Gillian -open Gillian.Utils.Prelude)
+ (preprocess
+  (pps ppx_deriving.std ppx_deriving_yojson)))

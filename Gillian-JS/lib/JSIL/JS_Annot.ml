@@ -10,6 +10,8 @@ type t = {
 }
 [@@deriving yojson, make, eq]
 
+type nest_kind = FunCall of string [@@deriving yojson]
+
 (** For basic commands *)
 let make_basic ?origin_loc ?loop_info () =
   make ?origin_loc ?loop_info ~cmd_kind:Hidden ()
