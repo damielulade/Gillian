@@ -24,12 +24,22 @@ let old_fun_tbl : pre_fun_tbl_type = Hashtbl.create medium_tbl_size
 let vis_tbl : vis_tbl_type = Hashtbl.create medium_tbl_size
 
 let rec set_final_annot
-    (cs : (JS_Annot.t * string option * 'a) list)
+    (cs : (JS_Annot.t * string option * LabCmd.t) list)
     (cmd_kind : JS_Annot.cmd_kind) =
   match cs with
   | [] -> []
   | [ (annot, str, cmd) ] -> [ ({ annot with cmd_kind }, str, cmd) ]
   | hd :: tl -> hd :: set_final_annot tl cmd_kind
+
+let set_all_annot
+    (cs : (JS_Annot.t * string option * LabCmd.t) list)
+    (cmd_kind : JS_Annot.cmd_kind) =
+  cs
+  |> List.map (fun (a, b, c) ->
+         let x = { a with JS_Annot.cmd_kind } in
+         (x, b, c))
+
+let set_all_normal_annot cs = set_all_annot cs (Normal false)
 
 let if_verification a b =
   let cond = Exec_mode.is_verification_exec !Config.current_exec_mode in
@@ -4206,6 +4216,7 @@ and translate_statement tr_ctx e =
           ]
     in
     let errs = errs_e @ errs_x_v @ [ x_cae; x_pv ] in
+    let cmds = set_all_normal_annot cmds in
     let cmds = set_final_annot cmds JS_Annot.(Normal true) in
     (cmds, x_ref, errs)
   in
@@ -6753,6 +6764,7 @@ let generate_main e strictness spec : EProc.t =
 
   let cmds_e, x_e, errs, _, _, _ = translate_statement ctx e in
   let _pp_list ppp = Fmt.list ~sep:(Fmt.any "@\n@\n") ppp in
+  Fmt.pr "\n----------- GENERATE_MAIN -----------\n";
   cmds_e
   |> List.iter (fun (a, _b, c) ->
          Fmt.pr "Cmd_kind\n\t%s\n"
@@ -6762,16 +6774,7 @@ let generate_main e strictness spec : EProc.t =
             (match b with
             | Some s -> s
             | None -> "None"); *)
-         Fmt.pr "Command\n\t%a\n\n" LabCmd.pp c);
-
-  (* cmds_e
-     |> List.iter (fun (a, b, c) ->
-            Fmt.pr "Cmd_kind\n\t%s\nString?\n\t%s\n"
-              (a |> JS_Annot.to_yojson |> Yojson.Safe.to_string)
-              (match b with
-              | Some s -> s
-              | None -> "None");
-            Fmt.pr "Command\n\t%a\n\n" LabCmd.pp c); *)
+         Fmt.pr "Command\n\t%a\n-----------------------\n" LabCmd.pp c);
 
   (* List.iter (fun ({ line_offset; invariant; pre_logic_cmds; post_logic_cmds }, _, _) ->
      Printf.printf "Length: pre: %d \t post: %d\n" (List.length pre_logic_cmds) (List.length post_logic_cmds)) cmds_e; *)
@@ -7093,6 +7096,17 @@ let generate_proc ?use_cc e fid params strictness vis_fid spec : EProc.t =
   let cmd_ass_re = annotate_cmd cmd_ass_re None in
 
   let cmds_e, _, errs, rets, _, _ = translate_statement new_ctx e in
+  Fmt.pr "\n----------- GENERATE_PROC -----------\n";
+  cmds_e
+  |> List.iter (fun (a, _b, c) ->
+         Fmt.pr "Cmd_kind\n\t%s\n"
+           (a.JS_Annot.cmd_kind |> JS_Annot.cmd_kind_to_yojson
+          |> Yojson.Safe.pretty_to_string);
+         (* Fmt.pr "String?\n\t%s\n"
+            (match b with
+            | Some s -> s
+            | None -> "None"); *)
+         Fmt.pr "Command\n\t%a\n-----------------------\n" LabCmd.pp c);
 
   (* List.iter (fun ({ line_offset; invariant; pre_logic_cmds; post_logic_cmds }, _, _) ->
      Printf.printf "Length: pre: %d \t post: %d\n" (List.length pre_logic_cmds) (List.length post_logic_cmds)) cmds_e; *)
