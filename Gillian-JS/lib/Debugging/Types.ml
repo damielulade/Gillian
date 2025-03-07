@@ -66,6 +66,8 @@ struct
   }
   [@@deriving to_yojson]
 
+  let dump = to_yojson
+
   (** Execution data *)
   type exec_data = cmd_report Gillian.Debugger.Lifter.executed_cmd_data
   [@@deriving yojson]
