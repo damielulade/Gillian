@@ -23,6 +23,14 @@ let fun_tbl : fun_tbl_type = Hashtbl.create medium_tbl_size
 let old_fun_tbl : pre_fun_tbl_type = Hashtbl.create medium_tbl_size
 let vis_tbl : vis_tbl_type = Hashtbl.create medium_tbl_size
 
+let rec set_final_annot
+    (cs : (JS_Annot.t * string option * 'a) list)
+    (cmd_kind : JS_Annot.cmd_kind) =
+  match cs with
+  | [] -> []
+  | [ (annot, str, cmd) ] -> [ ({ annot with cmd_kind }, str, cmd) ]
+  | hd :: tl -> hd :: set_final_annot tl cmd_kind
+
 let if_verification a b =
   let cond = Exec_mode.is_verification_exec !Config.current_exec_mode in
   if cond then a else b
@@ -953,6 +961,7 @@ let rec translate_expr tr_ctx e :
              cmd_cae (* x_cae := i__checkAssignmentErrors (x_ref) with err *);
            ])
     in
+    (* let cmds = set_final_annot cmds JS_Annot.(Normal true) in *)
     (x_ref, cmds, [ x_cae ])
   in
 
@@ -3813,18 +3822,7 @@ let rec translate_expr tr_ctx e :
                 (*   x_pv := i__putValue (x1, x2_v) with err         *);
               ])
       in
-      let rec set_final_annot cs =
-        match cs with
-        | [] -> []
-        | [ (annot, str, cmd) ] ->
-            let updated_annot =
-              { annot with JS_Annot.cmd_kind = Normal true }
-            in
-            [ (updated_annot, str, cmd) ]
-        | hd :: tl -> hd :: set_final_annot tl
-      in
-      let cmds = set_final_annot cmds in
-      let cmds = cmds in
+      (* let cmds = set_final_annot cmds JS_Annot.(Normal true) in *)
       let errs = errs1 @ errs2 @ errs_x2_v @ [ x_cae; x_pv ] in
       (cmds, PVar x2_v, errs)
   | JS_Parser.Syntax.AssignOp (e1, op, e2) ->
@@ -3909,6 +3907,7 @@ let rec translate_expr tr_ctx e :
       let errs =
         errs1 @ errs_x1_v @ errs2 @ errs_x2_v @ new_errs @ [ x_cae; x_pv ]
       in
+      (* let cmds = set_final_annot cmds JS_Annot.(Normal true) in *)
       (cmds, PVar x_r, errs)
   | JS_Parser.Syntax.Comma (e1, e2) ->
       (*
@@ -4207,6 +4206,7 @@ and translate_statement tr_ctx e =
           ]
     in
     let errs = errs_e @ errs_x_v @ [ x_cae; x_pv ] in
+    let cmds = set_final_annot cmds JS_Annot.(Normal true) in
     (cmds, x_ref, errs)
   in
 
@@ -6752,6 +6752,26 @@ let generate_main e strictness spec : EProc.t =
   in
 
   let cmds_e, x_e, errs, _, _, _ = translate_statement ctx e in
+  let _pp_list ppp = Fmt.list ~sep:(Fmt.any "@\n@\n") ppp in
+  cmds_e
+  |> List.iter (fun (a, _b, c) ->
+         Fmt.pr "Cmd_kind\n\t%s\n"
+           (a.JS_Annot.cmd_kind |> JS_Annot.cmd_kind_to_yojson
+          |> Yojson.Safe.pretty_to_string);
+         (* Fmt.pr "String?\n\t%s\n"
+            (match b with
+            | Some s -> s
+            | None -> "None"); *)
+         Fmt.pr "Command\n\t%a\n\n" LabCmd.pp c);
+
+  (* cmds_e
+     |> List.iter (fun (a, b, c) ->
+            Fmt.pr "Cmd_kind\n\t%s\nString?\n\t%s\n"
+              (a |> JS_Annot.to_yojson |> Yojson.Safe.to_string)
+              (match b with
+              | Some s -> s
+              | None -> "None");
+            Fmt.pr "Command\n\t%a\n\n" LabCmd.pp c); *)
 
   (* List.iter (fun ({ line_offset; invariant; pre_logic_cmds; post_logic_cmds }, _, _) ->
      Printf.printf "Length: pre: %d \t post: %d\n" (List.length pre_logic_cmds) (List.length post_logic_cmds)) cmds_e; *)
