@@ -1,4 +1,18 @@
-type t = unit [@@deriving yojson]
+(* open UtilFuncs *)
+(* open Types *)
+(* open Jsil_syntax.JS_Annot *)
+
+type t = unit [@@deriving to_yojson]
+
+(* Canonical command data
+   type conanical_cmd_data = {
+     id : id;
+     display : string;
+     nest_kind : nest_kind option;
+   }
+   [@@deriving to_yojson]
+
+   type partial_result *)
 
 (* open Gil_syntax
    open Debugger.Utils
