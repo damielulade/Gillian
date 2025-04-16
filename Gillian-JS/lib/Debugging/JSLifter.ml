@@ -6,27 +6,18 @@ module Make
     (Gil : Gillian.Debugger.Lifter.Gil_fallback_lifter.Gil_lifter_with_state)
     (V : Gillian.Abstraction.Verifier.S with type annot = PC.Annot.t) =
 struct
-  module Lifter_Types = Types.Make (Gil) (V)
-  module Fallback_Gil_lifter = Gil.Lifter
-  module Partial_cmds = PartialCmds.Make (Lifter_Types)
-  module Prog = Gil_syntax.Prog
-  include Lifter_Types
+  module Types = struct
+    include LifterTypes.Make (V)
+    include LifterTypes
+  end
 
-  type t = {
-    proc_name : string;
-    gil_state : Fallback_Gil_lifter.t; [@to_yojson Fallback_Gil_lifter.dump]
-    tl_ast : tl_ast; [@to_yojson fun _ -> `Null]
-    prog : (annot, int) Prog.t; [@to_yojson fun _ -> `Null]
-    partial_cmds : Partial_cmds.t;
-    map : map;
-    func_return_map : (id, string * int ref) Hashtbl.t;
-    mutable func_return_count : int;
-  }
-  [@@deriving to_yojson]
-
-  include StepFuncs
-  include VarFuncs
-  include UtilFuncs
+  module State = State.Make (Gil)
+  module Utils = LifterUtils.Make (Gil) (State)
+  module Partial_cmds = PartialCmds.Make
+  include Types
+  include State
+  include VariableHandling.Make (Utils)
+  include StepFuncs.Make (Gil) (State) (Utils)
   open Exec_map
 
   let init ~proc_name ~all_procs:_ tl_ast prog =
