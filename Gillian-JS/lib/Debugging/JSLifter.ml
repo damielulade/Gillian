@@ -12,11 +12,13 @@ struct
   end
 
   module State = State.Make (Gil)
-  module Utils = LifterUtils.Make (Gil) (State)
   module Partial_cmds = PartialCmds.Make
+  module Utils = LifterUtils.Make (Gil) (State)
+  module Insert_new_cmd = InsertNewCmd.Make (Gil) (State) (Partial_cmds) (Utils)
+  module Init_or_handle = InitOrHandle.Make (Gil) (State) (Types)
   include Types
   include State
-  include VariableHandling.Make (Utils)
+  include VariableHandling.Make
   include StepFuncs.Make (Gil) (State) (Utils)
   open Exec_map
 
@@ -52,4 +54,7 @@ struct
 
   let parse_and_compile_files ~entrypoint files =
     PC.parse_and_compile_files files |> Result.map (fun r -> (r, entrypoint))
+
+  let _handle_cmd prev_id gil_case exec_data state =
+    Init_or_handle.f ~state ~prev_id ?gil_case exec_data
 end
