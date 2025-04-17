@@ -14,7 +14,7 @@ struct
   module State = State.Make (Gil)
   module Partial_cmds = PartialCmds.Make
   module Utils = LifterUtils.Make (Gil) (State)
-  module Insert_new_cmd = InsertNewCmd.Make (Gil) (State) (Partial_cmds) (Utils)
+  module Insert_new_cmd = InsertNewCmd.Make (Gil) (State) (Utils)
   module Init_or_handle = InitOrHandle.Make (Gil) (State) (Types)
   include Types
   include State

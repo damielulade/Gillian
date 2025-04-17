@@ -4,8 +4,6 @@ open Gillian.Debugger.Lifter
 open Gillian.Utils
 open Gillian.Utils.Prelude
 open Gillian.Utils.Syntaxes.Option
-
-(* open PartialTypes *)
 open Javert_utils
 open Javert_utils.Js_branch_case
 open LifterUtils
@@ -14,10 +12,6 @@ open LifterTypes
 module Make
     (Gil : Gillian.Debugger.Lifter.Gil_fallback_lifter.Gil_lifter_with_state)
     (State : State.S with type gil_state_t = Gil.Lifter.t)
-    (PartialCmds : sig
-      (* type finished [@@deriving yojson] *)
-      (* val finished_to_yojson : finished -> Packaged.branch_case *)
-    end)
     (Utils : sig
       val package_node :
         ('a, Js_branch_case.t, cmd_data, 'b) node ->
