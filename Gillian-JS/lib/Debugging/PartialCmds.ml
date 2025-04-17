@@ -15,6 +15,7 @@ end
 module Make = struct
   (* open Update *)
   (* open UtilFuncs *)
+  include PartialTypes
 
   let update = Update.f
   let ends_to_cases = ()
