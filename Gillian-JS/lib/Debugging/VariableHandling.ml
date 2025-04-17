@@ -1,13 +1,9 @@
 open Debugger.Utils
 open Gil_syntax
 open Semantics
+open LifterUtils
 
-module Make (Utils : sig
-  val to_str : 'a Fmt.t -> 'a -> string
-end) =
-struct
-  open Utils
-
+module Make = struct
   (* TODO: All of this node stuff should be refactored to hide the scope id *)
   let create_node_var name nodes get_new_scope_id (variables : Variable.ts) =
     let id = get_new_scope_id () in
