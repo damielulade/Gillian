@@ -1,6 +1,20 @@
 open Javert_utils
 open Gillian.Debugger.Utils.Exec_map
 open LifterTypes
+(* open InsertNewCmd *)
+
+let ( let++ ) f o = Result.map o f
+let ( let** ) o f = Result.bind o f
+let to_str pp = Fmt.to_to_string (Fmt.hbox pp)
+
+let rec int_to_letters ?(acc = "") = function
+  | 0 -> acc
+  | i ->
+      let i = i - 1 in
+      let remainder = i mod 26 in
+      let char = Char.chr (65 + remainder) |> Char.escaped in
+      let acc = acc ^ char in
+      int_to_letters ~acc (i / 26)
 
 module Make
     (Gil : Gillian.Debugger.Lifter.Gil_fallback_lifter.Gil_lifter_with_state)
@@ -10,9 +24,6 @@ struct
   open State
 
   let path_of_id id { gil_state; _ } = Lifter.path_of_id id gil_state
-  let ( let++ ) f o = Result.map o f
-  let ( let** ) o f = Result.bind o f
-  let to_str pp = Fmt.to_to_string (Fmt.hbox pp)
 
   let package_case case : Packaged.branch_case * string =
     let json = Js_branch_case.to_yojson case in
