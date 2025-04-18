@@ -7,19 +7,28 @@ module Make
     (V : Gillian.Abstraction.Verifier.S with type annot = PC.Annot.t) =
 struct
   module Types = struct
-    include LifterTypes.Make (V)
+    include LifterTypes.Make (struct
+      type t = V.SAInterpreter.Logging.ConfigReport.t [@@deriving yojson]
+    end)
+
     include LifterTypes
   end
+  (* DONE *)
 
-  module State = State.Make (Gil)
-  module Partial_cmds = PartialCmds.Make
-  module Utils = LifterUtils.Make (Gil) (State)
-  module Insert_new_cmd = InsertNewCmd.Make (Gil) (State) (Utils)
-  module Init_or_handle = InitOrHandle.Make (Gil) (State) (Types)
+  module State = State.Make (Gil) (* DONE *)
+  module Utils = LifterUtils.Make (Gil) (State) (* DONE *)
+  module Insert_new_cmd = InsertNewCmd.Make (Gil) (State) (Utils) (* DONE *)
+  module Partial_cmds = PartialCmds.Make (* @@@@ TODO *)
+
+  module Init_or_handle =
+    (* DONE *)
+      InitOrHandle.Make (Gil) (V) (State) (Types) (Partial_cmds)
+        (Insert_new_cmd)
+
   include Types
   include State
-  include VariableHandling.Make
-  include StepFuncs.Make (Gil) (State) (Utils)
+  include VariableHandling.Make (* DONE *)
+  include StepFuncs.Make (Gil) (State) (Utils) (* @@@@ TODO *)
   open Exec_map
 
   let init ~proc_name ~all_procs:_ tl_ast prog =

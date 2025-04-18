@@ -24,6 +24,13 @@ module Make = struct
   let init () = Hashtbl.create 0
   let init_partial = ()
   let find_or_init = ()
-  let failwith = ()
-  let handle = ()
+  (* let failwith = () *)
+
+  let handle ~prog ~(partials : t) ~get_prev ~prev_id exec_data =
+    let _a = prog in
+    let _a = partials in
+    let _a = get_prev in
+    let _a = prev_id in
+    let _a = exec_data in
+    failwith "undefined"
 end
