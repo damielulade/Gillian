@@ -1,9 +1,9 @@
 (* TEMPORARY FILE, COPY OF WISL BRANCH CASE UTILS FILE *)
 
-type kind = IfElseKind | WhileLoopKind [@@deriving yojson]
+type kind = IfElseKind | WhileLoopKind [@@deriving yojson, eq]
 
 type case = IfElse of bool | WhileLoop of bool | FuncExit of string | Unknown
-[@@deriving yojson]
+[@@deriving yojson, show]
 
 type t = Case of case * int | FuncExitPlaceholder [@@deriving yojson]
 

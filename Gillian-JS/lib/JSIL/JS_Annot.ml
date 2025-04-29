@@ -3,14 +3,17 @@ type cmd_kind =
   | Hidden
 [@@deriving yojson, eq, show]
 
+type nest_kind = FunCall of string [@@deriving yojson, eq]
+
 type t = {
   origin_loc : Gil_syntax.Location.t option;
   loop_info : string list;
   cmd_kind : cmd_kind; [@default Normal false]
+  nest_kind : nest_kind option;
+  branch_kind : Javert_utils.Js_branch_case.kind option;
+  display : string option;
 }
 [@@deriving yojson, make, eq]
-
-type nest_kind = FunCall of string [@@deriving yojson]
 
 (** For basic commands *)
 let make_basic ?origin_loc ?loop_info () =
