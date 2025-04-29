@@ -34,10 +34,12 @@ type cmd_data = {
 type map = (id, Js_branch_case.t, cmd_data, branch_data) Exec_map.map
 [@@deriving yojson]
 
-module Make (CmdReport : sig
-  type t [@@deriving yojson]
-end) =
+module Make
+    (V : Gillian.Abstraction.Verifier.S
+           with type annot = JS2GIL_ParserAndCompiler.Annot.t) =
 struct
+  module CmdReport = V.SAInterpreter.Logging.ConfigReport [@@deriving yojson]
+
   type cmd_report = CmdReport.t [@@deriving yojson]
   type exec_data = cmd_report executed_cmd_data [@@deriving yojson]
   type _ Effect.t += Step : step_args -> exec_data Effect.t
