@@ -35,7 +35,7 @@ type partial_data = {
   matches : Match_map.matching Ext_list.t;
       (* Unifications contained in this CMD. *)
   errors : string Ext_list.t; (* Errors occurring during this CMD. *)
-  mutable conanical_data : canonical_cmd_data option;
+  mutable canonical_data : canonical_cmd_data option;
   mutable funcall_kind : funcall_kind option;
   mutable has_return : bool;
 }
