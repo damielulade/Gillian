@@ -21,7 +21,7 @@ module Make
           (init_data ->
           ((id * Js_branch_case.t option * id list) option, string) result) ->
         prev_id:id option ->
-        Types.cmd_report executed_cmd_data ->
+        Types.exec_data ->
         PartialTypes.partial_result
     end)
     (InsertNewCmd : sig
@@ -32,7 +32,7 @@ module Make
     end) =
 struct
   open State
-  open Types
+  (* open Types *)
 
   let get_prev ~state ~gil_case ~prev_id () =
     let { map; _ } = state in
@@ -62,7 +62,7 @@ struct
         | Some case -> Ok (Some (id, Some case, callers))
         | None -> Error "couldn't find prev in branches!")
 
-  let f ~state ?prev_id ?gil_case (exec_data : exec_data) =
+  let f ~state ?prev_id ?gil_case (exec_data : Types.exec_data) =
     let annot = exec_data.cmd_report.annot in
     let { partial_cmds = partials; tl_ast = prog; _ } = state in
     match annot.cmd_kind with
