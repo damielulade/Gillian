@@ -21,7 +21,7 @@ module Make
           (init_data ->
           ((id * Js_branch_case.t option * id list) option, string) result) ->
         prev_id:id option ->
-        Types.exec_data ->
+        Types.cmd_report executed_cmd_data ->
         PartialTypes.partial_result
     end)
     (InsertNewCmd : sig
