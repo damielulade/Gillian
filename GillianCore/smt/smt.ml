@@ -15,15 +15,44 @@ let z3_config =
     ("timeout", "30000");
   ]
 
-let solver = new_solver z3
-let cmd s = ack_command solver s
-let () = z3_config |> List.iter (fun (k, v) -> cmd (set_option (":" ^ k) v))
+let () = Sys.(set_signal sigpipe Signal_ignore)
 
 exception SMT_unknown
 
 let pp_sexp = Sexplib.Sexp.pp_hum
 let init_decls : sexp list ref = ref []
 let builtin_funcs : sexp list ref = ref []
+
+let solver =
+  ref
+    {
+      command = (fun _ -> failwith "Uninitialized solver");
+      stop = (fun () -> failwith "Uninitialized solver");
+      force_stop = (fun () -> failwith "Uninitialized solver");
+      config = z3;
+    }
+
+let cmd s = ack_command !solver s
+
+let rec init_solver () =
+  let z3 = new_solver z3 in
+  let command s =
+    try z3.command s
+    with Sys_error s ->
+      let msg = Fmt.str "Error when calling SMT solver: %s" s in
+      Logging.normal (fun m -> m "%s" msg);
+      init_solver ();
+      raise (Gillian_result.Exc.internal_error msg)
+  in
+  let () = solver := { z3 with command } in
+  (* Config, initial decls *)
+  let () =
+    z3_config |> List.iter (fun (k, v) -> cmd (set_option (":" ^ k) v))
+  in
+  let decls = List.rev !init_decls in
+  let () = decls |> List.iter cmd in
+  let () = cmd (push 1) in
+  ()
 
 let sanitize_identifier =
   let pattern = Str.regexp "#" in
@@ -33,7 +62,12 @@ let is_true = function
   | Sexplib.Sexp.Atom "true" -> true
   | _ -> false
 
-type typenv = (string, Type.t) Hashtbl.t
+type typenv = (string, Type.t) Hashtbl.t [@@deriving to_yojson]
+
+let fs_to_yojson fs = fs |> Expr.Set.to_list |> list_to_yojson Expr.to_yojson
+
+let sexps_to_yojson sexps =
+  `List (List.map (fun sexp -> `String (Sexplib.Sexp.to_string_hum sexp)) sexps)
 
 let pp_typenv = Fmt.(Dump.hashtbl string (Fmt.of_to_string Type.str))
 
@@ -936,7 +970,7 @@ let exec_sat' (fs : Expr.Set.t) (gamma : typenv) : sexp option =
   let () = List.iter cmd !builtin_funcs in
   let () = List.iter cmd encoded_assertions in
   L.verbose (fun fmt -> fmt "Reached SMT.");
-  let result = check solver in
+  let result = check !solver in
   L.verbose (fun m ->
       let r =
         match result with
@@ -950,23 +984,17 @@ let exec_sat' (fs : Expr.Set.t) (gamma : typenv) : sexp option =
     | Unknown ->
         if !Config.under_approximation then raise SMT_unknown
         else
-          let msg =
-            Fmt.str
-              "FATAL ERROR: SMT returned UNKNOWN for SAT question:\n\
-               %a\n\
-               with gamma:\n\
-               @[%a@]\n\n\n\
-               Solver:\n\
-               %a\n\
-               @?"
-              (Fmt.iter ~sep:(Fmt.any ", ") Expr.Set.iter Expr.pp)
-              fs pp_typenv gamma
-              (Fmt.list ~sep:(Fmt.any "\n\n") Sexplib.Sexp.pp_hum)
-              encoded_assertions
+          let additional_data =
+            [
+              ("expressions", fs_to_yojson fs);
+              ("gamma", typenv_to_yojson gamma);
+              ("encoded_assertions", sexps_to_yojson encoded_assertions);
+            ]
           in
-          let () = L.print_to_all msg in
-          exit 1
-    | Sat -> Some (get_model solver)
+          raise
+            Gillian_result.Exc.(
+              internal_error ~additional_data "SMT returned unknown")
+    | Sat -> Some (get_model !solver)
     | Unsat -> None
   in
   ret
@@ -974,14 +1002,14 @@ let exec_sat' (fs : Expr.Set.t) (gamma : typenv) : sexp option =
 let exec_sat (fs : Expr.Set.t) (gamma : typenv) : sexp option =
   try exec_sat' fs gamma
   with UnexpectedSolverResponse _ as e ->
-    let msg =
-      Fmt.str "SMT failure!@\n%s@\nExpressions: @\n%a"
-        (Printexc.to_string e ^ "\n")
-        Fmt.(list ~sep:(Fmt.any "@\n") Expr.pp)
-        (Expr.Set.elements fs)
+    let additional_data =
+      [
+        ("smt_error", `String (Printexc.to_string e));
+        ("expressions", fs_to_yojson fs);
+        ("gamma", typenv_to_yojson gamma);
+      ]
     in
-    let () = L.print_to_all msg in
-    exit 1
+    raise Gillian_result.Exc.(internal_error ~additional_data "SMT failure")
 
 let check_sat (fs : Expr.Set.t) (gamma : typenv) : sexp option =
   match Hashtbl.find_opt sat_cache fs with
@@ -1011,7 +1039,7 @@ let lift_model
     (subst_update : string -> Expr.t -> unit)
     (target_vars : Expr.Set.t) : unit =
   let () = reset_solver () in
-  let model_eval = (model_eval' solver model).eval [] in
+  let model_eval = (model_eval' !solver model).eval [] in
 
   let get_val x =
     try
@@ -1067,7 +1095,4 @@ let lift_model
          in
          v |> Option.iter (fun v -> subst_update x (Expr.Lit v)))
 
-let () =
-  let decls = List.rev !init_decls in
-  let () = decls |> List.iter cmd in
-  cmd (push 1)
+let () = init_solver ()

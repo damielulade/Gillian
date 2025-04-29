@@ -12,7 +12,11 @@
   debugger_lifter
   incrementalAnalysis
   debug_adapter
-  memtrace)
+  memtrace
+  linol
+  linol-lwt)
+ (preprocess
+  (pps ppx_deriving.std))
  (flags
   :standard
   -open
