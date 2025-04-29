@@ -18,7 +18,7 @@ struct
   module State = State.Make (Gil) (* DONE *)
   module Utils = LifterUtils.Make (Gil) (State) (* DONE *)
   module Insert_new_cmd = InsertNewCmd.Make (Gil) (State) (Utils) (* DONE *)
-  module Partial_cmds = PartialCmds.Make (* @@@@ TODO *)
+  module Partial_cmds = PartialCmds.Make (V) (Types) (* DONE *)
 
   module Init_or_handle =
     (* DONE *)
