@@ -164,7 +164,7 @@ let add_codenames exp =
         let new_annot, id =
           update_codename_annotation e.exp_annot fresh_anonymous
         in
-        code_names := id :: !code_names;
+        code_names := ("", id) :: !code_names;
         { e with exp_stx = e.exp_stx; exp_annot = new_annot }
     | Function (_, Some name, _, _) ->
         let name_generator : unit -> string =
@@ -173,7 +173,9 @@ let add_codenames exp =
         let new_annot, id =
           update_codename_annotation e.exp_annot name_generator
         in
-        code_names := id :: !code_names;
+        code_names := (name, id) :: !code_names;
+        (* Debugger_log.log (fun m -> m "Old function name was: %s" name);
+           Debugger_log.log (fun m -> m "Now it is called: %s\n" id); *)
         { exp with exp_stx = e.exp_stx; exp_annot = new_annot }
     | Try _ ->
         let catch_id = fresh_catch_anonymous () in
@@ -575,6 +577,7 @@ let translate_specs
 
   Hashtbl.iter
     (fun _ (f_id, f_args, f_body, strictness, (annotations, _, _)) ->
+      (* Debugger_log.log (fun m -> m "Old function name was: %s" f_id); *)
       let non_main_args =
         JS2JSIL_Helpers.var_scope :: JS2JSIL_Helpers.var_this :: f_args
       in
@@ -602,6 +605,7 @@ let translate_only_specs cc_tbl old_fun_tbl fun_tbl vis_tbl js_only_specs =
   let only_specs = Hashtbl.create medium_tbl_size in
   List.iter
     (fun { JSSpec.name; JSSpec.params; JSSpec.sspecs } ->
+      Debugger_log.log (fun m -> m "Old function name was: %s" name);
       Hashtbl.replace vis_tbl name [ name; main_fid ];
       let sspecs =
         List.map
@@ -633,6 +637,7 @@ let translate_only_specs cc_tbl old_fun_tbl fun_tbl vis_tbl js_only_specs =
           None,
           true,
           ([], [ name; !Config.entry_point ], Hashtbl.create 1) );
+
       Hashtbl.replace fun_tbl name (name, params, None, true, Some spec))
     js_only_specs;
   only_specs
@@ -822,7 +827,7 @@ let preprocess_eval
   test_early_errors strictness hacked_e;
 
   (* 1 - Add unique ids to function literals       *)
-  let (e : JS_Parser.Syntax.exp), _ = add_codenames e in
+  let (e : JS_Parser.Syntax.exp), code_names = add_codenames e in
 
   (* 2 - Adding the eval body to the translation tables *)
   let _ = update_cc_tbl cc_tbl fid_parent fid (get_all_vars_f e params) in
@@ -840,4 +845,4 @@ let preprocess_eval
   (* 4 - Translate Specs                           *)
   translate_specs cc_tbl vis_tbl pre_fun_tbl fun_tbl;
 
-  (e, fid, vislist, fun_tbl)
+  (e, fid, vislist, code_names, fun_tbl)

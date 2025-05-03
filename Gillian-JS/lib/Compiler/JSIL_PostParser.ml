@@ -58,6 +58,7 @@ let post_parse_eproc (eproc : EProc.t) : EProc.t =
   in
   {
     name = eproc.name;
+    original_name = eproc.original_name;
     body = new_body;
     params = eproc.params;
     spec = eproc.spec;
@@ -453,6 +454,7 @@ let bi_post_parse_eproc
 
   {
     name = eproc.name;
+    original_name = eproc.original_name;
     body = new_body;
     params = eproc.params;
     spec = eproc.spec;

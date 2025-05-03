@@ -473,7 +473,7 @@ let jsil2core_proc (proc : EProc.t) : ('a, string) GProc.t =
     proc_body = Array.of_list body';
     proc_params = proc.params;
     proc_spec = Option.map jsil2gil_spec proc.spec;
-    proc_aliases = [];
+    proc_aliases = [ proc.original_name ];
     proc_calls = [];
     (* TODO *)
   }

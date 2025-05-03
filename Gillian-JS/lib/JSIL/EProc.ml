@@ -4,13 +4,14 @@ module Flag = Gillian.Gil_syntax.Flag
 (* JSIL procedures extended with string labels *)
 type t = {
   name : string;
+  original_name : string;
   body : (Annot.t * string option * LabCmd.t) array;
   params : string list;
   spec : Spec.t option;
 }
 
 let pp fmt labproc =
-  let { name; body; params; spec } = labproc in
+  let { name; body; params; spec; _ } = labproc in
   let len_opt = function
     | None -> 0
     | Some s -> String.length s

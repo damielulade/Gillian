@@ -740,7 +740,7 @@ proc_target:
     {
       let name, params = proc_head in
       let proc : EProc.t = {
-        name; body = Array.of_list cmd_list; params; spec
+        name; original_name = name; body = Array.of_list cmd_list; params; spec
       } in
       proc
     }

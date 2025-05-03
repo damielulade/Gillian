@@ -546,6 +546,7 @@ struct
             exit 1
 
       let compile_tl_files entrypoint files =
+        (* COME BACK HERE? *)
         let++ progs, entrypoint =
           Lifter.parse_and_compile_files ~entrypoint files
         in
@@ -597,6 +598,7 @@ struct
           Gil_parsing.eprog_to_prog ?prog_path:(List_utils.hd_opt files)
             ~other_imports:PC.other_imports e_prog
         in
+        (* Debugger_log.log (fun m -> *)
         L.verbose (fun m ->
             m "@\nProgram as parsed:@\n%a@\n"
               (Prog.pp_indexed ?pp_annot:None)
@@ -1005,6 +1007,8 @@ struct
 
       let f proc_name ~entrypoint state =
         let { debug_state; _ } = state in
+        DL.log (fun m -> m "Proc name at launch_proc is: %s" proc_name);
+        DL.log (fun m -> m "Entrypoint is: %s" entrypoint);
         let report_state = L.Report_state.clone debug_state.report_state_base in
         report_state
         |> L.Report_state.with_state (fun () ->
@@ -1042,11 +1046,44 @@ struct
           process_files ~proc_name ~outfile ~no_unfold ~already_compiled
             [ file_name ]
         in
+
+        (* Debugger_log.log (fun m -> m "Old function name was: %s" proc_name);
+           Debugger_log.log (fun m -> m "New name is: %s" f_name); *)
+
+        (* COULD WE DO SOMETHING HERE TO GET THE PROC_NAME CORRECT? *)
         let proc_names =
           prog.procs |> Hashtbl.to_seq
           |> Seq.filter_map (fun (name, proc) ->
-                 if Proc.(proc.proc_internal) then None else Some name)
+                 if Proc.(proc.proc_internal) then None
+                 else
+                   (* let name =
+                        match proc.proc_aliases with
+                        | [ x ] ->
+                            (* Debugger_log.log (fun m ->
+                                m "Old function name was: %s" name);
+                            Debugger_log.log (fun m -> m "New name would be: %s" x); *)
+                            x
+                        | _ -> name
+                      in *)
+                   Some name)
           |> List.of_seq
+        in
+        (* @TODO LOOK HERE *)
+        let proc_name =
+          prog.procs |> Hashtbl.to_seq
+          |> Seq.find_map (fun (name, proc) ->
+                 match Proc.(proc.proc_aliases) with
+                 | [ x ] -> if x = proc_name then Some name else None
+                 | _ -> None)
+          |> Option.value ~default:proc_name
+        in
+        let entrypoint =
+          prog.procs |> Hashtbl.to_seq
+          |> Seq.find_map (fun (name, proc) ->
+                 match Proc.(proc.proc_aliases) with
+                 | [ x ] -> if x = entrypoint then Some name else None
+                 | _ -> None)
+          |> Option.value ~default:entrypoint
         in
         let report_state_base = L.Report_state.(clone global_state) in
         let cfg =
@@ -1068,6 +1105,7 @@ struct
         Config.stats := false;
         let** debug_state, entrypoint = build_debug_state file_name proc_name in
         let proc_name = debug_state.main_proc_name in
+        (* Debugger_log.log (fun m -> m "The proc_name is got back in Launch.f is: %s" proc_name); *)
         let state = make_state debug_state in
         let++ main_proc_state, _ = launch_proc proc_name ~entrypoint state in
         main_proc_state.report_state |> L.Report_state.activate;
