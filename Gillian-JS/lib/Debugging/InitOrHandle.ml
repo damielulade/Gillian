@@ -66,7 +66,7 @@ struct
     let annot = exec_data.cmd_report.annot in
     let { partial_cmds = partials; tl_ast = prog; _ } = state in
     match annot.cmd_kind with
-    | Normal _ | Hidden -> (
+    | Normal _ | Hidden | Return -> (
         let get_prev = get_prev ~state ~gil_case ~prev_id in
         let partial_result =
           PartialCmds.handle ~prog ~get_prev ~partials ~prev_id exec_data

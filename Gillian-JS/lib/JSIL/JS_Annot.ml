@@ -1,12 +1,13 @@
 type cmd_kind =
   | Normal of bool  (** Is this the final JSIL command for the JS statement? *)
   | Hidden
+  | Return
 [@@deriving yojson, eq, show]
 
 type nest_kind = FunCall of string [@@deriving yojson, eq]
 
 type t = {
-  origin_loc : Gil_syntax.Location.t option;
+  origin_loc : Gillian.Utils.Location.t option;
   loop_info : string list;
   cmd_kind : cmd_kind; [@default Normal false]
   nest_kind : nest_kind option;

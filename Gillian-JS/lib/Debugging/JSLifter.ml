@@ -46,7 +46,23 @@ struct
         func_return_count = 0;
       }
     in
-    let finish_init = failwith proc_name in
+    let finish_init () =
+      let rec aux id_case =
+        let id, case, path =
+          match id_case with
+          | Some (id, case) ->
+              let path = Utils.path_of_id id state in
+              (Some id, case, path)
+          | None -> (None, None, [])
+        in
+        let exec_data = Effect.perform (Step (id, case, path)) in
+        match Init_or_handle.f ~state ?prev_id:id ?gil_case:case exec_data with
+        | Either.Left (id, case) -> aux (Some (id, case))
+        | Either.Right map -> map.data.id
+      in
+      let id = aux None in
+      (id, Debugger_utils.Step)
+    in
     (state, finish_init)
 
   let init_exn ~proc_name ~all_procs tl_ast prog =

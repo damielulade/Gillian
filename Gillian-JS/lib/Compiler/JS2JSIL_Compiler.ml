@@ -6667,7 +6667,10 @@ let make_final_cmd vars final_lab final_var origin_loc =
         let vars = List.map (fun x_r -> PVar x_r) vars in
         LPhiAssignment [ (final_var, vars) ]
   in
-  (JS_Annot.make_basic ~origin_loc (), Some final_lab, cmd_final)
+  let cmd_kind = JS_Annot.Return in
+  ( { (JS_Annot.make_basic ~origin_loc ()) with cmd_kind },
+    Some final_lab,
+    cmd_final )
 
 let translate_fun_decls (top_level : bool) (sc_var : string) (cur_index : int) e
     =
@@ -6764,17 +6767,18 @@ let generate_main e strictness spec : EProc.t =
 
   let cmds_e, x_e, errs, _, _, _ = translate_statement ctx e in
   let _pp_list ppp = Fmt.list ~sep:(Fmt.any "@\n@\n") ppp in
-  Fmt.pr "\n----------- GENERATE_MAIN -----------\n";
-  cmds_e
-  |> List.iter (fun (a, _b, c) ->
-         Fmt.pr "Cmd_kind\n\t%s\n"
-           (a.JS_Annot.cmd_kind |> JS_Annot.cmd_kind_to_yojson
-          |> Yojson.Safe.pretty_to_string);
-         (* Fmt.pr "String?\n\t%s\n"
-            (match b with
-            | Some s -> s
-            | None -> "None"); *)
-         Fmt.pr "Command\n\t%a\n-----------------------\n" LabCmd.pp c);
+
+  (* Fmt.pr "\n----------- GENERATE_MAIN -----------\n";
+     cmds_e
+     |> List.iter (fun (a, _b, c) ->
+            Fmt.pr "Cmd_kind\n\t%s\n"
+              (a.JS_Annot.cmd_kind |> JS_Annot.cmd_kind_to_yojson
+             |> Yojson.Safe.pretty_to_string);
+            (* Fmt.pr "String?\n\t%s\n"
+               (match b with
+               | Some s -> s
+               | None -> "None"); *)
+            Fmt.pr "Command\n\t%a\n-----------------------\n" LabCmd.pp c); *)
 
   (* List.iter (fun ({ line_offset; invariant; pre_logic_cmds; post_logic_cmds }, _, _) ->
      Printf.printf "Length: pre: %d \t post: %d\n" (List.length pre_logic_cmds) (List.length post_logic_cmds)) cmds_e; *)
@@ -6840,7 +6844,33 @@ let generate_main e strictness spec : EProc.t =
     @ [ ret_ass; cmd_del_te; cmd_del_se; cmd_del_re; lab_ret_cmd ]
     @ err_cmds
   in
-  { name = main_fid; body = Array.of_list main_cmds; params = []; spec }
+
+  (* main_cmds
+     |> List.iter (fun (a, _, c) ->
+            Debugger_log.log (fun m ->
+                m "Cmd_kind\n\t%s\nCommand\n\t%a\n-----------------------\n"
+                  (a.JS_Annot.cmd_kind |> JS_Annot.cmd_kind_to_yojson
+                 |> Yojson.Safe.pretty_to_string)
+                  LabCmd.pp c)); *)
+
+  (* Fmt.pr "\n----------- GENERATE_MAIN -----------\n";
+     main_cmds
+     |> List.iter (fun (a, _b, c) ->
+            Fmt.pr "Cmd_kind\n\t%s\n"
+              (a.JS_Annot.cmd_kind |> JS_Annot.cmd_kind_to_yojson
+             |> Yojson.Safe.pretty_to_string);
+            (* Fmt.pr "String?\n\t%s\n"
+               (match b with
+               | Some s -> s
+               | None -> "None"); *)
+            Fmt.pr "Command\n\t%a\n-----------------------\n" LabCmd.pp c); *)
+  {
+    name = main_fid;
+    original_name = main_fid;
+    body = Array.of_list main_cmds;
+    params = [];
+    spec;
+  }
 
 let generate_proc_eval new_fid ?use_cc e strictness vis_fid : EProc.t =
   let origin_loc = JS_Utils.lift_flow_loc e.JS_Parser.Syntax.exp_loc in
@@ -6973,13 +7003,16 @@ let generate_proc_eval new_fid ?use_cc e strictness vis_fid : EProc.t =
   in
   {
     name = new_fid;
+    original_name = new_fid;
+    (* @TODO FIX THIS ASAP *)
     body = Array.of_list fid_cmds;
     params = [ var_scope; var_this ];
     spec = None;
   }
 
-let generate_proc ?use_cc e fid params strictness vis_fid spec : EProc.t =
+let generate_proc ?use_cc e fid params strictness vis_fid spec ids : EProc.t =
   let origin_loc = JS_Utils.lift_flow_loc e.JS_Parser.Syntax.exp_loc in
+  (* Debugger_log.log (fun m -> m "FUNCTION ID Is NOW CALLED: %s" fid); *)
   let annotate_cmd cmd lab = (JS_Annot.make_basic ~origin_loc (), lab, cmd) in
 
   let var_sc_proc = JS2JSIL_Helpers.var_sc_first in
@@ -7096,17 +7129,18 @@ let generate_proc ?use_cc e fid params strictness vis_fid spec : EProc.t =
   let cmd_ass_re = annotate_cmd cmd_ass_re None in
 
   let cmds_e, _, errs, rets, _, _ = translate_statement new_ctx e in
-  Fmt.pr "\n----------- GENERATE_PROC -----------\n";
-  cmds_e
-  |> List.iter (fun (a, _b, c) ->
-         Fmt.pr "Cmd_kind\n\t%s\n"
-           (a.JS_Annot.cmd_kind |> JS_Annot.cmd_kind_to_yojson
-          |> Yojson.Safe.pretty_to_string);
-         (* Fmt.pr "String?\n\t%s\n"
-            (match b with
-            | Some s -> s
-            | None -> "None"); *)
-         Fmt.pr "Command\n\t%a\n-----------------------\n" LabCmd.pp c);
+
+  (* Fmt.pr "\n----------- GENERATE_PROC -----------\n";
+     cmds_e
+     |> List.iter (fun (a, _b, c) ->
+            Fmt.pr "Cmd_kind\n\t%s\n"
+              (a.JS_Annot.cmd_kind |> JS_Annot.cmd_kind_to_yojson
+             |> Yojson.Safe.pretty_to_string);
+            (* Fmt.pr "String?\n\t%s\n"
+               (match b with
+               | Some s -> s
+               | None -> "None"); *)
+            Fmt.pr "Command\n\t%a\n-----------------------\n" LabCmd.pp c); *)
 
   (* List.iter (fun ({ line_offset; invariant; pre_logic_cmds; post_logic_cmds }, _, _) ->
      Printf.printf "Length: pre: %d \t post: %d\n" (List.length pre_logic_cmds) (List.length post_logic_cmds)) cmds_e; *)
@@ -7195,8 +7229,31 @@ let generate_proc ?use_cc e fid params strictness vis_fid spec : EProc.t =
     @ if_verification [] [ cmd_del_errs ]
     @ [ cmd_err_final ]
   in
+  let original_name =
+    let rec aux lst =
+      match lst with
+      | [] -> ""
+      | (original, unique) :: rest ->
+          if unique = fid then original else aux rest
+    in
+    aux ids
+  in
+  Fmt.pr "\n----------- GENERATE_PROC -----------\n";
+  fid_cmds
+  |> List.iter (fun (a, _b, c) ->
+         Fmt.pr "Cmd_kind\n\t%s\n"
+           (a.JS_Annot.cmd_kind |> JS_Annot.cmd_kind_to_yojson
+          |> Yojson.Safe.pretty_to_string);
+         (* Fmt.pr "String?\n\t%s\n"
+            (match b with
+            | Some s -> s
+            | None -> "None"); *)
+         Fmt.pr "Command\n\t%a\n-----------------------\n" LabCmd.pp c);
+
   {
     name = fid;
+    original_name;
+    (* @TODO FIX THIS ASAP *)
     body = Array.of_list fid_cmds;
     params = var_scope :: var_this :: params;
     spec;
@@ -7210,7 +7267,7 @@ let js2jsil_eval
     e =
   let prog, which_pred = (prog.procs, prog.predecessors) in
 
-  let e, fid_eval, vislist_eval, eval_fun_tbl =
+  let e, fid_eval, vislist_eval, ids, eval_fun_tbl =
     JS2JSIL_Preprocessing.preprocess_eval cc_tbl vis_tbl strictness e fid_parent
       []
   in
@@ -7239,7 +7296,7 @@ let js2jsil_eval
                 | "x__scope" :: rest -> rest
                 | _ -> f_params
               in
-              generate_proc f_body f_id f_params f_strictness vislist None
+              generate_proc f_body f_id f_params f_strictness vislist None ids
           in
           L.verbose (fun m -> m "Eval proc to execute:@\n%a@\n" EProc.pp proc);
           let proc' = JSIL2GIL.jsil2core_proc proc in
@@ -7265,7 +7322,7 @@ let js2jsil_function_constructor_prop
     e =
   let prog, which_pred = (prog.procs, prog.predecessors) in
 
-  let _, new_fid, _, new_fun_tbl =
+  let _, new_fid, _, ids, new_fun_tbl =
     JS2JSIL_Preprocessing.preprocess_eval cc_tbl vis_tbl strictness e
       !Config.entry_point params
   in
@@ -7291,7 +7348,7 @@ let js2jsil_function_constructor_prop
                   | "x__scope" :: rest -> rest
                   | _ -> f_params
                 in
-                generate_proc f_body f_id f_params f_strictness vis_fid None
+                generate_proc f_body f_id f_params f_strictness vis_fid None ids
               in
               L.verbose (fun m ->
                   m "Function constructor proc to execute:@\n%a@\n" EProc.pp
@@ -7325,6 +7382,7 @@ let js2jsil ~filename e for_verification =
 
   Hashtbl.iter
     (fun f_id (_, f_params, f_body, f_strictness, spec) ->
+      (* Debugger_log.log (fun m -> m "FUNCTION ID Is NOW CALLED: %s" f_id); *)
       Option.fold
         ~some:(fun f_body ->
           (* print_normal (Printf.sprintf "Procedure %s is recursive?! %b" f_id f_rec); *)
@@ -7340,7 +7398,7 @@ let js2jsil ~filename e for_verification =
                   in
                   raise (Failure msg)
               in
-              generate_proc f_body f_id f_params f_strictness vis_fid spec
+              generate_proc f_body f_id f_params f_strictness vis_fid spec ids
           in
           Hashtbl.add procedures f_id proc)
         ~none:() f_body)
@@ -7359,6 +7417,6 @@ let js2jsil ~filename e for_verification =
   let macros = Macro.init_tbl () in
   let bispecs = BiSpec.init_tbl () in
   ( EProg.init imports lemmas predicates only_specs procedures macros bispecs
-      (ids @ [ !Config.entry_point ]),
+      ((ids |> List.split |> snd) @ [ !Config.entry_point ]),
     cc_tbl,
     vis_tbl )

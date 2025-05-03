@@ -28,6 +28,7 @@ struct
     match cmd_kind with
     | Normal b -> Ok b
     | Hidden -> Ok false
+    | Return -> Ok true
 
   let resolve_case
       ?gil_case
@@ -117,7 +118,9 @@ struct
     let { ends; unexplored_paths; _ } = partial in
     match (annot.cmd_kind, next_kind, is_end) with
     | _, Zero, _ -> Ok ()
-    (* | Return, _, _ -> Ok () *)
+    | Return, _, _ ->
+        let () = partial.has_return <- true in
+        Ok ()
     | _, One (), false ->
         Stack.push (id, None) unexplored_paths;
         Ok ()
@@ -142,6 +145,14 @@ struct
       (partial : partial_data) =
     let- () =
       match annot.cmd_kind with
+      | Return ->
+          let result =
+            let** callers, stack_direction =
+              get_stack_info ~partial exec_data
+            in
+            update_return_cmd_info ~id ~callers ~stack_direction partial
+          in
+          Some result
       | _ -> None
     in
     match (annot.cmd_kind, partial.canonical_data, annot.display) with
