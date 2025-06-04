@@ -72,7 +72,6 @@ type context = {
   next_kind : (Js_branch_case.t, branch_data) Exec_map.next_kind;
   callers : id list;
   loc : (string * int) option;
-  (* has_return : bool; *)
 }
 [@@deriving yojson]
 

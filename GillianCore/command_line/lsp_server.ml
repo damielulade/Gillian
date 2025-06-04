@@ -1,5 +1,7 @@
 open Linol_lwt
-open Linol.Lsp.Types
+
+(* open Linol.Lsp.Types -- WRONG *)
+open Lsp.Types
 
 type buffer_state = { path : string; content : string }
 

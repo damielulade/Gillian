@@ -174,8 +174,6 @@ let add_codenames exp =
           update_codename_annotation e.exp_annot name_generator
         in
         code_names := (name, id) :: !code_names;
-        (* Debugger_log.log (fun m -> m "Old function name was: %s" name);
-           Debugger_log.log (fun m -> m "Now it is called: %s\n" id); *)
         { exp with exp_stx = e.exp_stx; exp_annot = new_annot }
     | Try _ ->
         let catch_id = fresh_catch_anonymous () in
@@ -577,7 +575,6 @@ let translate_specs
 
   Hashtbl.iter
     (fun _ (f_id, f_args, f_body, strictness, (annotations, _, _)) ->
-      (* Debugger_log.log (fun m -> m "Old function name was: %s" f_id); *)
       let non_main_args =
         JS2JSIL_Helpers.var_scope :: JS2JSIL_Helpers.var_this :: f_args
       in
@@ -605,7 +602,6 @@ let translate_only_specs cc_tbl old_fun_tbl fun_tbl vis_tbl js_only_specs =
   let only_specs = Hashtbl.create medium_tbl_size in
   List.iter
     (fun { JSSpec.name; JSSpec.params; JSSpec.sspecs } ->
-      Debugger_log.log (fun m -> m "Old function name was: %s" name);
       Hashtbl.replace vis_tbl name [ name; main_fid ];
       let sspecs =
         List.map
