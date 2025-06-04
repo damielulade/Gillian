@@ -675,7 +675,7 @@ cmd_with_annot:
           loc_source = $startpos.pos_fname;
         }
       in
-      let annot = Jsil_syntax.JS_Annot.make_basic ~origin_loc () in
+      let annot = Jsil_syntax.JS_Annot.make_internal ~origin_loc () in
       annot, cmd
     }
 
