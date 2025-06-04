@@ -1235,5 +1235,5 @@ struct
 
   let parse_and_compile_files ~entrypoint files =
     WParserAndCompiler.parse_and_compile_files files
-    |> Result.map (fun r -> (r, entrypoint))
+    |> Result.map (fun r -> (r, entrypoint, false))
 end

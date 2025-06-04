@@ -13,15 +13,17 @@ struct
   end
 
   module State = State.Make (Gil)
-  module Utils = LifterUtils.Make (Gil) (State)
-  module Insert_new_cmd = InsertNewCmd.Make (Gil) (State) (Utils)
+  module LifterUtils = LifterUtils.Make (Gil) (State)
+  module Insert_new_cmd = InsertNewCmd.Make (Gil) (State) (LifterUtils)
   module PartialCommands = PartialCommands.Make (V) (Types)
 
   module Init_or_handle =
     InitOrHandle.Make (Gil) (V) (State) (Types) (PartialCommands)
       (Insert_new_cmd)
 
-  include StepFuncs.Make (Gil) (V) (State) (Utils) (Types) (Init_or_handle)
+  include
+    StepFuncs.Make (Gil) (V) (State) (LifterUtils) (Types) (Init_or_handle)
+
   include Types
   include State
   include VariableHandling.Make
@@ -47,7 +49,7 @@ struct
         let id, case, path =
           match id_case with
           | Some (id, case) ->
-              let path = Utils.path_of_id id state in
+              let path = LifterUtils.path_of_id id state in
               (Some id, case, path)
           | None -> (None, None, [])
         in
@@ -73,7 +75,13 @@ struct
     { id = "unknown"; description = Some "Error lifting not supported yet!" }
 
   let parse_and_compile_files ~entrypoint files =
-    PC.parse_and_compile_files files |> Result.map (fun r -> (r, entrypoint))
+    let entrypoint, override =
+      if Utils.(!Config.current_exec_mode = Exec_mode.Symbolic) then
+        (Js2jsil_lib.JS2JSIL_Helpers.main_fid, true)
+      else (entrypoint, false)
+    in
+    PC.parse_and_compile_files files
+    |> Result.map (fun r -> (r, entrypoint, override))
 
   let _handle_cmd prev_id gil_case exec_data state =
     Init_or_handle.f ~state ~prev_id ?gil_case exec_data

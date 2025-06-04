@@ -111,7 +111,9 @@ module type S = sig
   val parse_and_compile_files :
     entrypoint:string ->
     string list ->
-    ((annot, tl_ast, init_data) ParserAndCompiler.compiled_progs * string)
+    ((annot, tl_ast, init_data) ParserAndCompiler.compiled_progs
+    * string
+    * bool)
     Gillian_result.t
 end
 

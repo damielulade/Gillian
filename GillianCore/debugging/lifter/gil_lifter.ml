@@ -391,5 +391,6 @@ functor
       Some (init_exn ~proc_name ~all_procs tl_ast prog)
 
     let parse_and_compile_files ~entrypoint files =
-      PC.parse_and_compile_files files |> Result.map (fun r -> (r, entrypoint))
+      PC.parse_and_compile_files files
+      |> Result.map (fun r -> (r, entrypoint, false))
   end

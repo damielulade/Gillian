@@ -1159,5 +1159,5 @@ struct
   let parse_and_compile_files ~entrypoint files =
     let () = Kconfig.harness := Some entrypoint in
     C2ParserAndCompiler.parse_and_compile_files files
-    |> Result.map (fun r -> (r, Constants.CBMC_names.start))
+    |> Result.map (fun r -> (r, Constants.CBMC_names.start, false))
 end
