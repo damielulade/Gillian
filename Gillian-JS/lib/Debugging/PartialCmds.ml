@@ -6,9 +6,154 @@ open LifterTypes
 open LifterUtils
 open Gillian.Utils
 open Gillian.Utils.Syntaxes.Option
-module DL = Debugger_log
 open Gillian.Debugger.Lifter
 open Gillian.Debugger.Utils
+module DL = Debugger_log
+
+module Finish
+    (V : Gillian.Abstraction.Verifier.S
+           with type annot = JS2GIL_ParserAndCompiler.Annot.t) =
+struct
+  open PartialTypes
+
+  let ends_to_cases
+      ~is_unevaluated_funcall
+      ~nest_kind
+      (ends : (Js_branch_case.case * branch_data) list) =
+    let- () =
+      match (nest_kind, ends) with
+      | Some (FunCall _), [ (Unknown, bdata) ] ->
+          if is_unevaluated_funcall then None
+          else Some (Ok [ (Js_branch_case.FuncExitPlaceholder, bdata) ])
+      | Some (FunCall _), _ ->
+          Some (Error "Unexpected branching in cmd with FunCall nest")
+      | _ -> None
+    in
+    let counts = Hashtbl.create 0 in
+    let () =
+      ends
+      |> List.iter (fun (case_kind, _) ->
+             let total, _ =
+               Hashtbl.find_opt counts case_kind |> Option.value ~default:(0, 0)
+             in
+             Hashtbl.replace counts case_kind (total + 1, 0))
+    in
+    ends
+    |> List.map (fun (kind, branch_data) ->
+           let total, count = Hashtbl.find counts kind in
+           let ix =
+             match (kind, total) with
+             | Js_branch_case.(IfElse _ | WhileLoop _), 1 -> -1
+             | _ -> count
+           in
+           let () = Hashtbl.replace counts kind (total, count + 1) in
+           (Js_branch_case.Case (kind, ix), branch_data))
+    |> Result.ok
+
+  let make_canonical_data_if_error
+      ~(canonical_data : canonical_cmd_data option)
+      ~ends
+      ~errors
+      ~all_ids
+      ~prev : (canonical_cmd_data * partial_end list) option =
+    let/ () = canonical_data |> Option.map (fun c -> (c, ends)) in
+    match errors with
+    | [] -> None
+    | _ ->
+        let _, _, callers = Option.get prev in
+        let c =
+          {
+            id = all_ids |> List.rev |> List.hd;
+            display = "<error>";
+            callers;
+            stack_direction = None;
+            nest_kind = None;
+            loc = None;
+            cmd_kind = JS_Annot.Unknown;
+          }
+        in
+        Some (c, [])
+
+  let f partial =
+    let ({
+           prev;
+           canonical_data;
+           funcall_kind;
+           all_ids;
+           ends;
+           matches;
+           errors;
+           has_return;
+           _;
+         }
+          : partial_data) =
+      partial
+    in
+    let all_ids = all_ids |> Ext_list.to_list |> List.map fst in
+    let matches = matches |> Ext_list.to_list in
+    let errors = errors |> Ext_list.to_list in
+    let ends = ends |> Ext_list.to_list in
+    let canonical_data =
+      make_canonical_data_if_error ~canonical_data ~ends ~errors ~all_ids ~prev
+    in
+    let** ( { id; display; callers; stack_direction; nest_kind; loc; cmd_kind },
+            ends ) =
+      Result_utils.of_option
+        ~none:"Trying to finish partial with no canonical data!" canonical_data
+    in
+    let prev =
+      let+ id, branch, _ = prev in
+      (id, branch)
+    in
+
+    let++ next_kind =
+      let is_unevaluated_funcall =
+        match funcall_kind with
+        | Some Unevaluated_funcall -> true
+        | _ -> false
+      in
+      let++ cases = ends_to_cases ~is_unevaluated_funcall ~nest_kind ends in
+      match cases with
+      | [] -> Exec_map.Zero
+      | [ (Case (Unknown, _), _) ] ->
+          One (Option.get (List_utils.last all_ids), None)
+      | _ -> Many cases
+    in
+
+    match cmd_kind with
+    | Context _ ->
+        FinishedContext
+          {
+            cmd_kind;
+            branch_case = None;
+            id;
+            prev;
+            stack_direction;
+            all_ids;
+            display;
+            matches;
+            errors;
+            next_kind;
+            callers;
+            loc;
+            (* has_return; *)
+          }
+    | _ ->
+        FinishedCommand
+          {
+            prev;
+            id;
+            all_ids;
+            display;
+            matches;
+            errors;
+            next_kind;
+            callers;
+            stack_direction;
+            loc;
+            has_return;
+          }
+end
 
 module Update
     (V : Gillian.Abstraction.Verifier.S
@@ -22,6 +167,7 @@ module Update
 struct
   open PartialTypes
   open Types
+  module Finish = Finish (V)
 
   let get_is_end ({ cmd_kind; _ } : JS2GIL_ParserAndCompiler.Annot.t) =
     match cmd_kind with
@@ -192,14 +338,14 @@ struct
     let kind = annot.branch_kind in
     let++ case =
       match prev_kind_case with
+      | None -> Ok Js_branch_case.(Unknown)
       | Some (prev_kind, prev_case) ->
           resolve_case ?gil_case prev_kind prev_case
-      | None -> Ok Js_branch_case.(Unknown)
     in
     Ext_list.add (id, (kind, case)) all_ids;
     (kind, case)
 
-  let f ~finish ~prog ~prev_id exec_data partial =
+  let f ~prog ~prev_id exec_data partial =
     let { id; cmd_report; matches; errors; _ } = exec_data in
     let annot = V.SAInterpreter.Logging.ConfigReport.(cmd_report.annot) in
     let** is_end = get_is_end annot in
@@ -216,7 +362,7 @@ struct
 
     (* Finish or continue *)
     match Stack.pop_opt partial.unexplored_paths with
-    | None -> finish partial
+    | None -> Finish.f partial
     | Some (id, branch_case) -> StepAgain (id, branch_case) |> Result.ok
 end
 
@@ -234,144 +380,6 @@ struct
   include PartialTypes
   module Update = Update (V) (Types)
 
-  let ends_to_cases
-      ~is_unevaluated_funcall
-      ~nest_kind
-      (ends : (Js_branch_case.case * branch_data) list) =
-    let- () =
-      match (nest_kind, ends) with
-      | Some (FunCall _), [ (Unknown, bdata) ] ->
-          if is_unevaluated_funcall then None
-          else Some (Ok [ (Js_branch_case.FuncExitPlaceholder, bdata) ])
-      | Some (FunCall _), _ ->
-          Some (Error "Unexpected branching in cmd with FunCall nest")
-      | _ -> None
-    in
-    let counts = Hashtbl.create 0 in
-    let () =
-      ends
-      |> List.iter (fun (case_kind, _) ->
-             let total, _ =
-               Hashtbl.find_opt counts case_kind |> Option.value ~default:(0, 0)
-             in
-             Hashtbl.replace counts case_kind (total + 1, 0))
-    in
-    ends
-    |> List.map (fun (kind, branch_data) ->
-           let total, count = Hashtbl.find counts kind in
-           let ix =
-             match (kind, total) with
-             | (Js_branch_case.IfElse _ | Js_branch_case.WhileLoop _), 1 -> -1
-             | _ -> count
-           in
-           let () = Hashtbl.replace counts kind (total, count + 1) in
-           (Js_branch_case.Case (kind, ix), branch_data))
-    |> Result.ok
-
-  let make_canonical_data_if_error
-      ~(canonical_data : canonical_cmd_data option)
-      ~ends
-      ~errors
-      ~all_ids
-      ~prev : (canonical_cmd_data * partial_end list) option =
-    let/ () = canonical_data |> Option.map (fun c -> (c, ends)) in
-    match errors with
-    | [] -> None
-    | _ ->
-        let _, _, callers = Option.get prev in
-        let c =
-          {
-            id = all_ids |> List.rev |> List.hd;
-            display = "<error>";
-            callers;
-            stack_direction = None;
-            nest_kind = None;
-            loc = None;
-            cmd_kind = JS_Annot.Unknown;
-          }
-        in
-        Some (c, [])
-
-  let finish partial =
-    let ({
-           prev;
-           canonical_data;
-           funcall_kind;
-           all_ids;
-           ends;
-           matches;
-           errors;
-           has_return;
-           _;
-         }
-          : partial_data) =
-      partial
-    in
-    let all_ids = all_ids |> Ext_list.to_list |> List.map fst in
-    let matches = matches |> Ext_list.to_list in
-    let errors = errors |> Ext_list.to_list in
-    let ends = ends |> Ext_list.to_list in
-    let canonical_data =
-      make_canonical_data_if_error ~canonical_data ~ends ~errors ~all_ids ~prev
-    in
-    let** ( { id; display; callers; stack_direction; nest_kind; loc; cmd_kind },
-            ends ) =
-      Result_utils.of_option
-        ~none:"Trying to finish partial with no canonical data!" canonical_data
-    in
-    let prev =
-      let+ id, branch, _ = prev in
-      (id, branch)
-    in
-    let++ next_kind =
-      let is_unevaluated_funcall =
-        match funcall_kind with
-        | Some Unevaluated_funcall -> true
-        | _ -> false
-      in
-      let++ cases = ends_to_cases ~is_unevaluated_funcall ~nest_kind ends in
-      match cases with
-      | [] -> Exec_map.Zero
-      | [ (Case (Unknown, _), _) ] ->
-          One (Option.get (List_utils.last all_ids), None)
-      | _ -> Many cases
-    in
-
-    match cmd_kind with
-    | Context _ ->
-        FinishedContext
-          {
-            cmd_kind;
-            branch_case = None;
-            id;
-            prev;
-            stack_direction;
-            all_ids;
-            display;
-            matches;
-            errors;
-            next_kind;
-            callers;
-            loc;
-            (* has_return; *)
-          }
-    | _ ->
-        FinishedCommand
-          {
-            prev;
-            id;
-            all_ids;
-            display;
-            matches;
-            errors;
-            next_kind;
-            callers;
-            stack_direction;
-            loc;
-            has_return;
-          }
-
-  let update = Update.f ~finish
   let init () = Hashtbl.create 0
 
   let create_partial ~prev =
@@ -415,14 +423,10 @@ struct
     in
     Hashtbl.replace partials exec_data.id partial;
     let result =
-      update ~prog ~prev_id exec_data partial
+      Update.f ~prog ~prev_id exec_data partial
       |> Result_utils.or_else (fun e ->
              failwith ~exec_data ~partial ~partials e)
     in
-    (* DL.log (fun m ->
-        m
-          ~json:[ ("partial_result", result |> partial_result_to_yojson) ]
-          "PartialCommands.handle: partial result gotten"); *)
     let () =
       match result with
       | FinishedCommand _ | FinishedContext _ ->
