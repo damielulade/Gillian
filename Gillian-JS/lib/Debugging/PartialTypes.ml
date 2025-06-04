@@ -15,6 +15,7 @@ type canonical_cmd_data = {
   callers : id list;
   stack_direction : stack_direction option;
   nest_kind : JS2GIL_ParserAndCompiler.Annot.nest_kind option;
+  cmd_kind : JS2GIL_ParserAndCompiler.Annot.cmd_kind;
   loc : (string * int) option;
 }
 [@@deriving to_yojson]
@@ -58,7 +59,25 @@ type finished = {
 }
 [@@deriving yojson]
 
+type context = {
+  cmd_kind : JS2GIL_ParserAndCompiler.Annot.cmd_kind;
+  branch_case : Gil_syntax.Branch_case.t option;
+  id : id;
+  prev : (id * Js_branch_case.t option) option;
+  stack_direction : stack_direction option;
+  all_ids : id list;
+  display : string;
+  matches : Match_map.matching list;
+  errors : string list;
+  next_kind : (Js_branch_case.t, branch_data) Exec_map.next_kind;
+  callers : id list;
+  loc : (string * int) option;
+  (* has_return : bool; *)
+}
+[@@deriving yojson]
+
 type partial_result =
-  | Finished of finished
+  | FinishedCommand of finished
+  | FinishedContext of context
   | StepAgain of (id * Branch_case.t option)
 [@@deriving yojson]

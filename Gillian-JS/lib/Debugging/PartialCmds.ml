@@ -87,6 +87,7 @@ struct
           stack_direction;
           nest_kind = None;
           loc = None;
+          cmd_kind = JS_Annot.Return;
         };
     Ok ()
 
@@ -164,7 +165,7 @@ struct
     | (Hidden | Internal), _, _ -> Ok ()
     | _, None, Some display ->
         let** callers, stack_direction = get_stack_info ~partial exec_data in
-        let JS_Annot.{ nest_kind; _ } = annot in
+        let JS_Annot.{ nest_kind; cmd_kind; _ } = annot in
         let loc =
           let+ loc =
             annot.origin_loc |> Option.map location_to_display_location
@@ -172,7 +173,8 @@ struct
           (loc.loc_source, loc.loc_start.pos_line)
         in
         partial.canonical_data <-
-          Some { id; display; callers; stack_direction; nest_kind; loc };
+          Some
+            { id; display; callers; stack_direction; nest_kind; loc; cmd_kind };
         Ok ()
     | _ -> Ok ()
 
@@ -285,6 +287,7 @@ struct
             stack_direction = None;
             nest_kind = None;
             loc = None;
+            cmd_kind = JS_Annot.Unknown;
           }
         in
         Some (c, [])
@@ -293,9 +296,9 @@ struct
     let ({
            prev;
            canonical_data;
+           funcall_kind;
            all_ids;
            ends;
-           funcall_kind;
            matches;
            errors;
            has_return;
@@ -311,7 +314,8 @@ struct
     let canonical_data =
       make_canonical_data_if_error ~canonical_data ~ends ~errors ~all_ids ~prev
     in
-    let** { id; display; callers; stack_direction; nest_kind; loc }, ends =
+    let** ( { id; display; callers; stack_direction; nest_kind; loc; cmd_kind },
+            ends ) =
       Result_utils.of_option
         ~none:"Trying to finish partial with no canonical data!" canonical_data
     in
@@ -332,20 +336,40 @@ struct
           One (Option.get (List_utils.last all_ids), None)
       | _ -> Many cases
     in
-    Finished
-      {
-        prev;
-        id;
-        all_ids;
-        display;
-        matches;
-        errors;
-        next_kind;
-        callers;
-        stack_direction;
-        loc;
-        has_return;
-      }
+
+    match cmd_kind with
+    | Context _ ->
+        FinishedContext
+          {
+            cmd_kind;
+            branch_case = None;
+            id;
+            prev;
+            stack_direction;
+            all_ids;
+            display;
+            matches;
+            errors;
+            next_kind;
+            callers;
+            loc;
+            (* has_return; *)
+          }
+    | _ ->
+        FinishedCommand
+          {
+            prev;
+            id;
+            all_ids;
+            display;
+            matches;
+            errors;
+            next_kind;
+            callers;
+            stack_direction;
+            loc;
+            has_return;
+          }
 
   let update = Update.f ~finish
   let init () = Hashtbl.create 0
@@ -395,9 +419,13 @@ struct
       |> Result_utils.or_else (fun e ->
              failwith ~exec_data ~partial ~partials e)
     in
+    (* DL.log (fun m ->
+        m
+          ~json:[ ("partial_result", result |> partial_result_to_yojson) ]
+          "PartialCommands.handle: partial result gotten"); *)
     let () =
       match result with
-      | Finished _ ->
+      | FinishedCommand _ | FinishedContext _ ->
           partial.all_ids
           |> Ext_list.iter (fun (id, _) -> Hashtbl.remove_all partials id)
       | _ -> ()

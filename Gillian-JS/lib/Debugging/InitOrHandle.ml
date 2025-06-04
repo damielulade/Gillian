@@ -28,7 +28,7 @@ module Make
     (InsertNewCmd : sig
       val f :
         state:State.t ->
-        PartialTypes.finished ->
+        (PartialTypes.finished, PartialTypes.context) Either.t ->
         (id, Js_branch_case.t, cmd_data, branch_data) node
     end) =
 struct
@@ -82,8 +82,12 @@ struct
           PartialCmds.handle ~prog ~get_prev ~partials ~prev_id exec_data
         in
         match partial_result with
-        | Finished finished ->
-            let cmd = InsertNewCmd.f ~state finished in
+        | FinishedCommand finished ->
+            let cmd = InsertNewCmd.f ~state (Either.Left finished) in
+            Either.Right cmd
+        | FinishedContext context ->
+            let cmd = InsertNewCmd.f ~state (Either.Right context) in
+            (* Either.Left (cmd.data.id, None) *)
             Either.Right cmd
         | StepAgain (id, case) -> Either.Left (id, case))
 end

@@ -1,4 +1,3 @@
-open Gillian.Debugger
 open Gillian.Debugger.Utils.Exec_map
 open Gillian.Debugger.Lifter
 open Gillian.Utils
@@ -8,6 +7,7 @@ open Javert_utils
 open Javert_utils.Js_branch_case
 open LifterUtils
 open LifterTypes
+module DL = Debugger_log
 
 module Make
     (Gil : Gillian.Debugger.Lifter.Gil_fallback_lifter.Gil_lifter_with_state)
@@ -22,12 +22,15 @@ struct
   open Utils
 
   let failwith ~state ~finished_partial msg =
-    Logging.failwith
-      (fun () ->
-        [
-          ("state", to_yojson state);
-          ("finished_partial", PartialTypes.finished_to_yojson finished_partial);
-        ])
+    let finished =
+      match finished_partial with
+      | Either.Left finished_command ->
+          PartialTypes.finished_to_yojson finished_command
+      | Either.Right finished_context ->
+          PartialTypes.context_to_yojson finished_context
+    in
+    DL.failwith
+      (fun () -> [ ("state", to_yojson state); ("finished_partial", finished) ])
       ("JSLifter.insert_new_cmd: " ^ msg)
 
   let with_prev prev { data; next } =
@@ -35,34 +38,68 @@ struct
     { data; next }
 
   let make_new_cmd ~func_return_label finished_partial =
-    let PartialTypes.
-          {
-            all_ids;
-            id;
-            display;
-            matches;
-            errors;
-            prev;
-            next_kind;
-            callers;
-            loc;
-            _;
-          } =
-      finished_partial
-    in
-    let data =
-      {
-        all_ids;
-        id;
-        display;
-        matches;
-        errors;
-        submap = NoSubmap;
-        prev;
-        callers;
-        func_return_label;
-        loc;
-      }
+    let data, next_kind =
+      match finished_partial with
+      | Either.Left (command : PartialTypes.finished) ->
+          let PartialTypes.
+                {
+                  all_ids;
+                  id;
+                  display;
+                  matches;
+                  errors;
+                  prev;
+                  next_kind;
+                  callers;
+                  loc;
+                  has_return;
+                  _;
+                } =
+            command
+          in
+          let _ = has_return in
+          ( {
+              all_ids;
+              id;
+              display;
+              matches;
+              errors;
+              submap = NoSubmap;
+              prev;
+              callers;
+              func_return_label;
+              loc;
+            },
+            next_kind )
+      | Either.Right (context : PartialTypes.context) ->
+          let PartialTypes.
+                {
+                  all_ids;
+                  id;
+                  display;
+                  matches;
+                  errors;
+                  prev;
+                  next_kind;
+                  callers;
+                  loc;
+                  _;
+                } =
+            context
+          in
+          ( {
+              all_ids;
+              id;
+              display;
+              matches;
+              errors;
+              submap = NoSubmap;
+              prev;
+              callers;
+              func_return_label;
+              loc;
+            },
+            next_kind )
     in
     let next =
       match next_kind with
@@ -232,17 +269,28 @@ struct
 
   let f ~state finished_partial =
     let r =
-      let PartialTypes.{ id; all_ids; prev; stack_direction; _ } =
-        finished_partial
-      in
-      let** func_return_label = resolve_func_branches ~state finished_partial in
-      let new_cmd = make_new_cmd ~func_return_label finished_partial in
-      let** new_cmd = insert_cmd ~state ~prev ~stack_direction new_cmd in
-      let () = insert state.map ~id ~all_ids new_cmd in
-      let () =
-        Effect.perform (Node_updated (id, Some (package_node new_cmd)))
-      in
-      Ok new_cmd
+      match finished_partial with
+      | Either.Left (command : PartialTypes.finished) ->
+          let PartialTypes.{ id; all_ids; prev; stack_direction; has_return; _ }
+              =
+            command
+          in
+          let _ = has_return in
+          let** func_return_label = resolve_func_branches ~state command in
+          let new_cmd = make_new_cmd ~func_return_label finished_partial in
+          let** new_cmd = insert_cmd ~state ~prev ~stack_direction new_cmd in
+          insert state.map ~id ~all_ids new_cmd;
+          Effect.perform (Node_updated (id, Some (package_node new_cmd)));
+          Ok new_cmd
+      | Either.Right (context : PartialTypes.context) ->
+          let PartialTypes.{ id; all_ids; prev; stack_direction; _ } =
+            context
+          in
+          let new_cmd = make_new_cmd ~func_return_label:None finished_partial in
+          let** new_cmd = insert_cmd ~state ~prev ~stack_direction new_cmd in
+          insert state.map ~id ~all_ids new_cmd;
+          Effect.perform (Node_updated (id, Some (package_node new_cmd)));
+          Ok new_cmd
     in
     Result_utils.or_else (failwith ~state ~finished_partial) r
 end
