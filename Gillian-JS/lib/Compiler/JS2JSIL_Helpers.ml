@@ -186,6 +186,43 @@ let isNativeErrorName = "isNativeError"
 let deleteObjAndMetadata = "i__purge"
 let deleteErrorObjects = "i__deleteErrors"
 
+let unevaluated_funcs =
+  [
+    toBooleanName;
+    getValueName;
+    isReservedName;
+    putValueName;
+    createDefaultObjectName;
+    toObjectName;
+    toStringName;
+    toStringComputedName;
+    deletePropertyName;
+    syntaxErrorName;
+    typeErrorName;
+    referenceErrorName;
+    createFunctionObjectName;
+    isCallableName;
+    checkObjectCoercibleName;
+    jsTypeOfName;
+    toNumberName;
+    toPrimitiveName;
+    toInt32Name;
+    toUInt32Name;
+    abstractComparisonName;
+    hasPropertyName;
+    abstractEqualityComparisonName;
+    strictEqualityComparisonName;
+    defineOwnPropertyName;
+    checkAssignmentErrorsName;
+    checkParametersName;
+    getEnumFieldsName;
+    createArgsName;
+    dynamicScoper;
+    isNativeErrorName;
+    deleteObjAndMetadata;
+    deleteErrorObjects;
+  ]
+
 (* N.B. Keep the list updated when adding new special spec vars: *)
 
 let var_this = Jslogic.JSLogicCommon.var_this
