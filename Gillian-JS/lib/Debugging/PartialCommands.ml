@@ -43,7 +43,7 @@ struct
            let total, count = Hashtbl.find counts kind in
            let ix =
              match (kind, total) with
-             | Js_branch_case.(IfElse _ | WhileLoop _), 1 -> -1
+             | Js_branch_case.(IfElse _ | WhileLoop _ | ForLoop _), 1 -> -1
              | _ -> count
            in
            let () = Hashtbl.replace counts kind (total, count + 1) in
@@ -185,10 +185,11 @@ struct
     | None, prev_case -> Ok prev_case
     | Some prev_kind, Unknown -> (
         match prev_kind with
-        | IfElseKind | WhileLoopKind -> (
+        | IfElseKind | WhileLoopKind | ForLoopKind -> (
             match gil_case with
-            | Some (Gil_syntax.Branch_case.GuardedGoto b) -> Ok (IfElse b)
-            | _ -> Error "IfElseKind expects a GuardedGoto gil case"))
+            | Some (Gil_syntax.Branch_case.GuardedGoto b) ->
+                Ok (Js_branch_case.bool_kind_to_case prev_kind b)
+            | _ -> Error "resolveCase expects a GuardedGoto gil case"))
     | Some _, _ -> Error "HORROR - branch kind is set with pre-existing case!"
 
   let get_stack_info ~(partial : partial_data) (exec_data : exec_data) =
@@ -414,7 +415,7 @@ struct
           ("partial_data", opt_to_yojson partial_data_to_yojson partial);
           ("partials_state", to_yojson partials);
         ])
-      ("JSLifter.PartialCmds.handle: " ^ msg)
+      ("JSLifter.PartialCommands.handle: " ^ msg)
 
   let handle ~prog ~(partials : t) ~get_prev ~prev_id exec_data =
     let partial =
