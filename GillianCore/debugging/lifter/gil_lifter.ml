@@ -109,7 +109,11 @@ functor
           _;
         }
         () =
-      let display = Fmt.to_to_string Cmd.pp_indexed cmd_report.cmd in
+      let display =
+        match cmd_report.annot |> Annot.get_display with
+        | None -> Fmt.to_to_string Cmd.pp_indexed cmd_report.cmd
+        | Some x -> x
+      in
       let loc =
         let annot = cmd_report.annot in
         let+ loc =

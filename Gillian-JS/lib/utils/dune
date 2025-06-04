@@ -1,7 +1,9 @@
 (library
  (name javert_utils)
  (public_name gillian-js.javert_utils)
- (libraries gillian dune-site))
+ (libraries gillian dune-site)
+ (preprocess
+  (pps ppx_deriving.std ppx_deriving_yojson)))
 
 (generate_sites_module
  (module runtime_sites)

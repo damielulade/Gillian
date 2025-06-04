@@ -1,4 +1,4 @@
-type kind = IfElseKind | WhileLoopKind [@@deriving yojson]
+type kind = IfElseKind | WhileLoopKind [@@deriving yojson, show]
 
 type case = IfElse of bool | WhileLoop of bool | FuncExit of string | Unknown
 [@@deriving yojson]

@@ -1138,6 +1138,22 @@ struct
                  if Proc.(proc.proc_internal) then None else Some name)
           |> List.of_seq
         in
+        let proc_name =
+          prog.procs |> Hashtbl.to_seq
+          |> Seq.find_map (fun (name, proc) ->
+                 match Proc.(proc.proc_aliases) with
+                 | [ x ] -> if x = proc_name then Some name else None
+                 | _ -> None)
+          |> Option.value ~default:proc_name
+        in
+        let entrypoint =
+          prog.procs |> Hashtbl.to_seq
+          |> Seq.find_map (fun (name, proc) ->
+                 match Proc.(proc.proc_aliases) with
+                 | [ x ] -> if x = entrypoint then Some name else None
+                 | _ -> None)
+          |> Option.value ~default:entrypoint
+        in
         let report_state_base = L.Report_state.(clone global_state) in
         let cfg =
           let make ext =

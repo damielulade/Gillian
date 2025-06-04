@@ -675,7 +675,9 @@ cmd_with_annot:
           loc_source = $startpos.pos_fname;
         }
       in
-      let annot = Annot.Basic.make_basic ~origin_loc () in
+      let display = Fmt.str "%a" LabCmd.pp cmd
+      in
+      let annot = Jsil_syntax.JS_Annot.make_internal ~display ~origin_loc () in
       annot, cmd
     }
 
@@ -740,7 +742,7 @@ proc_target:
     {
       let name, params = proc_head in
       let proc : EProc.t = {
-        name; body = Array.of_list cmd_list; params; spec
+        name; original_name = name; body = Array.of_list cmd_list; params; spec
       } in
       proc
     }

@@ -1,5 +1,7 @@
 open Linol_lwt
-open Linol.Lsp.Types
+
+(* open Linol.Lsp.Types -- WRONG *)
+(* open Lsp.Types *)
 
 let default_range =
   let start = Position.create ~line:0 ~character:0 in

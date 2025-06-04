@@ -20,8 +20,8 @@ let populate () : unit =
   Hashtbl.replace reserved_properties "length"
     ("$larr_proto", "ArrayObj", "ArrayProto")
 
-let post_parse_lcmd (cmd : Annot.Basic.t * string option * LabCmd.t) :
-    (Annot.Basic.t * string option * LabCmd.t) list =
+let post_parse_lcmd (cmd : JS_Annot.t * string option * LabCmd.t) :
+    (JS_Annot.t * string option * LabCmd.t) list =
   let annot, lab, cmd = cmd in
   match !Javert_utils.Js_config.cosette with
   | true -> [ (annot, lab, cmd) ]
@@ -58,6 +58,7 @@ let post_parse_eproc (eproc : EProc.t) : EProc.t =
   in
   {
     name = eproc.name;
+    original_name = eproc.original_name;
     body = new_body;
     params = eproc.params;
     spec = eproc.spec;
@@ -404,8 +405,8 @@ let create_post_scope_pred
     normalised = false;
   }
 
-let bi_post_parse_cmd (cmd : Annot.Basic.t * string option * LabCmd.t) :
-    (Annot.Basic.t * string option * LabCmd.t) list =
+let bi_post_parse_cmd (cmd : JS_Annot.t * string option * LabCmd.t) :
+    (JS_Annot.t * string option * LabCmd.t) list =
   let annot, lab, cmd = cmd in
 
   match cmd with
@@ -453,6 +454,7 @@ let bi_post_parse_eproc
 
   {
     name = eproc.name;
+    original_name = eproc.original_name;
     body = new_body;
     params = eproc.params;
     spec = eproc.spec;

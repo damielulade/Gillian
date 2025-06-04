@@ -93,11 +93,7 @@ module Make
       parse_eprog files already_compiled
     in
     let () =
-      let pp_annot fmt annot =
-        Fmt.pf fmt "%a"
-          (Yojson.Safe.pretty_print ?std:None)
-          (PC.Annot.to_yojson annot)
-      in
+      let pp_annot = PC.Annot.pp in
       burn_gil
         ~pp_prog:(Prog.pp_labeled ~pp_annot)
         ~init_data:(ID.to_yojson init_data) e_prog outfile_opt

@@ -23,6 +23,24 @@ let fun_tbl : fun_tbl_type = Hashtbl.create medium_tbl_size
 let old_fun_tbl : pre_fun_tbl_type = Hashtbl.create medium_tbl_size
 let vis_tbl : vis_tbl_type = Hashtbl.create medium_tbl_size
 
+let rec set_final_annot
+    (cs : (JS_Annot.t * string option * LabCmd.t) list)
+    (cmd_kind : JS_Annot.cmd_kind) =
+  match cs with
+  | [] -> []
+  | [ (annot, str, cmd) ] -> [ ({ annot with cmd_kind }, str, cmd) ]
+  | hd :: tl -> hd :: set_final_annot tl cmd_kind
+
+let set_all_annot
+    (cs : (JS_Annot.t * string option * LabCmd.t) list)
+    (cmd_kind : JS_Annot.cmd_kind) =
+  cs
+  |> List.map (fun (a, b, c) ->
+         let x = { a with JS_Annot.cmd_kind } in
+         (x, b, c))
+
+let set_all_normal_annot cs = set_all_annot cs (Normal false)
+
 let if_verification a b =
   let cond = Exec_mode.is_verification_exec !Config.current_exec_mode in
   if cond then a else b
@@ -61,8 +79,8 @@ let add_initial_label cmds lab metadata =
 let prefix_lcmds
     (lcmds : LCmd.t list)
     (invariant : (Asrt.t * string list) option)
-    (cmds : (Annot.Basic.t * string option * LabCmd.t) list) :
-    (Annot.Basic.t * string option * LabCmd.t) list =
+    (cmds : (JS_Annot.t * string option * LabCmd.t) list) :
+    (JS_Annot.t * string option * LabCmd.t) list =
   let lcmds =
     Option.fold
       ~some:(fun (inv, binders) ->
@@ -764,7 +782,7 @@ let annotate_cmds_top_level metadata cmds =
         x_is - the list of variables that may hold error values
   *)
 let rec translate_expr tr_ctx e :
-    (Annot.Basic.t * string option * LabCmd.t) list * Expr.t * string list =
+    (JS_Annot.t * string option * LabCmd.t) list * Expr.t * string list =
   let f = translate_expr tr_ctx in
 
   let find_var_er_index v : int option =
@@ -784,8 +802,8 @@ let rec translate_expr tr_ctx e :
 
   (* All the other commands must get the offsets and nothing else *)
   let js_loc = e.JS_Parser.Syntax.exp_loc in
-  let metadata : Annot.Basic.t =
-    Annot.Basic.make_basic
+  let metadata : JS_Annot.t =
+    JS_Annot.make_basic
       ~origin_loc:(JS_Utils.lift_flow_loc js_loc)
       ~loop_info:tr_ctx.tr_loops ()
   in
@@ -953,6 +971,7 @@ let rec translate_expr tr_ctx e :
              cmd_cae (* x_cae := i__checkAssignmentErrors (x_ref) with err *);
            ])
     in
+    (* let cmds = set_final_annot cmds JS_Annot.(Normal true) in *)
     (x_ref, cmds, [ x_cae ])
   in
 
@@ -3813,8 +3832,7 @@ let rec translate_expr tr_ctx e :
                 (*   x_pv := i__putValue (x1, x2_v) with err         *);
               ])
       in
-
-      let cmds = cmds in
+      (* let cmds = set_final_annot cmds JS_Annot.(Normal true) in *)
       let errs = errs1 @ errs2 @ errs_x2_v @ [ x_cae; x_pv ] in
       (cmds, PVar x2_v, errs)
   | JS_Parser.Syntax.AssignOp (e1, op, e2) ->
@@ -3899,6 +3917,7 @@ let rec translate_expr tr_ctx e :
       let errs =
         errs1 @ errs_x1_v @ errs2 @ errs_x2_v @ new_errs @ [ x_cae; x_pv ]
       in
+      (* let cmds = set_final_annot cmds JS_Annot.(Normal true) in *)
       (cmds, PVar x_r, errs)
   | JS_Parser.Syntax.Comma (e1, e2) ->
       (*
@@ -4111,8 +4130,8 @@ and translate_statement tr_ctx e =
 
   (* All the other commands must get the offsets and nothing else *)
   let origin_loc = JS_Utils.lift_flow_loc e.JS_Parser.Syntax.exp_loc in
-  let metadata : Annot.Basic.t =
-    Annot.Basic.make_basic ~origin_loc ~loop_info:tr_ctx.tr_loops ()
+  let metadata : JS_Annot.t =
+    JS_Annot.make_basic ~origin_loc ~loop_info:tr_ctx.tr_loops ()
   in
   let annotate_cmds = annotate_cmds_top_level metadata in
   let annotate_cmd cmd lab = annotate_cmd_top_level metadata (lab, cmd) in
@@ -4197,6 +4216,8 @@ and translate_statement tr_ctx e =
           ]
     in
     let errs = errs_e @ errs_x_v @ [ x_cae; x_pv ] in
+    let cmds = set_all_normal_annot cmds in
+    let cmds = set_final_annot cmds JS_Annot.(Normal true) in
     (cmds, x_ref, errs)
   in
 
@@ -5491,7 +5512,7 @@ and translate_statement tr_ctx e =
       let cmds2 = add_initial_label cmds2 body metadata in
 
       (* Set up the new annotation *)
-      let metadata = metadata |> Annot.Basic.set_loop_info new_loops in
+      let metadata = metadata |> JS_Annot.set_loop_info new_loops in
       let annotate_loop_cmds = annotate_cmds_top_level metadata in
 
       let cmds =
@@ -5876,7 +5897,7 @@ and translate_statement tr_ctx e =
       let fe = translate_expr new_ctx in
 
       (* Set up the new annotation *)
-      let metadata = metadata |> Annot.Basic.set_loop_info new_loops in
+      let metadata = metadata |> JS_Annot.set_loop_info new_loops in
       let annotate_cmd = annotate_cmd_top_level metadata in
       let annotate_cmds = annotate_cmds_top_level metadata in
 
@@ -6027,7 +6048,7 @@ and translate_statement tr_ctx e =
     *)
       (* When we hit a return, we automatically exit all loops *)
       let new_ctx = update_tr_ctx ~loops:[] tr_ctx in
-      let metadata = metadata |> Annot.Basic.set_loop_info [] in
+      let metadata = metadata |> JS_Annot.set_loop_info [] in
       let annotate_cmd cmd lab = annotate_cmd_top_level metadata (lab, cmd) in
       match e with
       | None ->
@@ -6646,7 +6667,10 @@ let make_final_cmd vars final_lab final_var origin_loc =
         let vars = List.map (fun x_r -> PVar x_r) vars in
         LPhiAssignment [ (final_var, vars) ]
   in
-  (Annot.Basic.make_basic ~origin_loc (), Some final_lab, cmd_final)
+  let cmd_kind = JS_Annot.Return in
+  ( { (JS_Annot.make_basic ~origin_loc ()) with cmd_kind },
+    Some final_lab,
+    cmd_final )
 
 let translate_fun_decls (top_level : bool) (sc_var : string) (cur_index : int) e
     =
@@ -6672,9 +6696,7 @@ let translate_fun_decls (top_level : bool) (sc_var : string) (cur_index : int) e
 
 let generate_main e strictness spec : EProc.t =
   let origin_loc = JS_Utils.lift_flow_loc e.JS_Parser.Syntax.exp_loc in
-  let annotate_cmd cmd lab =
-    (Annot.Basic.make_basic ~origin_loc (), lab, cmd)
-  in
+  let annotate_cmd cmd lab = (JS_Annot.make_basic ~origin_loc (), lab, cmd) in
 
   let new_var = fresh_var () in
   let setup_heap_ass =
@@ -6739,11 +6761,24 @@ let generate_main e strictness spec : EProc.t =
   let cmds_hoist_fdecls = translate_fun_decls true sc_var_main 0 e in
   let cmds_hoist_fdecls =
     annotate_cmds_top_level
-      (Annot.Basic.make_basic ~origin_loc ())
+      (JS_Annot.make_basic ~origin_loc ())
       cmds_hoist_fdecls
   in
 
   let cmds_e, x_e, errs, _, _, _ = translate_statement ctx e in
+  let _pp_list ppp = Fmt.list ~sep:(Fmt.any "@\n@\n") ppp in
+
+  (* Fmt.pr "\n----------- GENERATE_MAIN -----------\n";
+     cmds_e
+     |> List.iter (fun (a, _b, c) ->
+            Fmt.pr "Cmd_kind\n\t%s\n"
+              (a.JS_Annot.cmd_kind |> JS_Annot.cmd_kind_to_yojson
+             |> Yojson.Safe.pretty_to_string);
+            (* Fmt.pr "String?\n\t%s\n"
+               (match b with
+               | Some s -> s
+               | None -> "None"); *)
+            Fmt.pr "Command\n\t%a\n-----------------------\n" LabCmd.pp c); *)
 
   (* List.iter (fun ({ line_offset; invariant; pre_logic_cmds; post_logic_cmds }, _, _) ->
      Printf.printf "Length: pre: %d \t post: %d\n" (List.length pre_logic_cmds) (List.length post_logic_cmds)) cmds_e; *)
@@ -6809,16 +6844,40 @@ let generate_main e strictness spec : EProc.t =
     @ [ ret_ass; cmd_del_te; cmd_del_se; cmd_del_re; lab_ret_cmd ]
     @ err_cmds
   in
-  { name = main_fid; body = Array.of_list main_cmds; params = []; spec }
+
+  (* main_cmds
+     |> List.iter (fun (a, _, c) ->
+            Debugger_log.log (fun m ->
+                m "Cmd_kind\n\t%s\nCommand\n\t%a\n-----------------------\n"
+                  (a.JS_Annot.cmd_kind |> JS_Annot.cmd_kind_to_yojson
+                 |> Yojson.Safe.pretty_to_string)
+                  LabCmd.pp c)); *)
+
+  (* Fmt.pr "\n----------- GENERATE_MAIN -----------\n";
+     main_cmds
+     |> List.iter (fun (a, _b, c) ->
+            Fmt.pr "Cmd_kind\n\t%s\n"
+              (a.JS_Annot.cmd_kind |> JS_Annot.cmd_kind_to_yojson
+             |> Yojson.Safe.pretty_to_string);
+            (* Fmt.pr "String?\n\t%s\n"
+               (match b with
+               | Some s -> s
+               | None -> "None"); *)
+            Fmt.pr "Command\n\t%a\n-----------------------\n" LabCmd.pp c); *)
+  {
+    name = main_fid;
+    original_name = main_fid;
+    body = Array.of_list main_cmds;
+    params = [];
+    spec;
+  }
 
 let generate_proc_eval new_fid ?use_cc e strictness vis_fid : EProc.t =
   let origin_loc = JS_Utils.lift_flow_loc e.JS_Parser.Syntax.exp_loc in
-  let annotate_cmd cmd lab =
-    (Annot.Basic.make_basic ~origin_loc (), lab, cmd)
-  in
+  let annotate_cmd cmd lab = (JS_Annot.make_basic ~origin_loc (), lab, cmd) in
   let annotate_cmds cmds =
     List.map
-      (fun (lab, cmd) -> (Annot.Basic.make_basic ~origin_loc (), lab, cmd))
+      (fun (lab, cmd) -> (JS_Annot.make_basic ~origin_loc (), lab, cmd))
       cmds
   in
   let var_sc_proc = JS2JSIL_Helpers.var_sc_first in
@@ -6944,16 +7003,17 @@ let generate_proc_eval new_fid ?use_cc e strictness vis_fid : EProc.t =
   in
   {
     name = new_fid;
+    original_name = new_fid;
+    (* @TODO FIX THIS ASAP *)
     body = Array.of_list fid_cmds;
     params = [ var_scope; var_this ];
     spec = None;
   }
 
-let generate_proc ?use_cc e fid params strictness vis_fid spec : EProc.t =
+let generate_proc ?use_cc e fid params strictness vis_fid spec ids : EProc.t =
   let origin_loc = JS_Utils.lift_flow_loc e.JS_Parser.Syntax.exp_loc in
-  let annotate_cmd cmd lab =
-    (Annot.Basic.make_basic ~origin_loc (), lab, cmd)
-  in
+  (* Debugger_log.log (fun m -> m "FUNCTION ID Is NOW CALLED: %s" fid); *)
+  let annotate_cmd cmd lab = (JS_Annot.make_basic ~origin_loc (), lab, cmd) in
 
   let var_sc_proc = JS2JSIL_Helpers.var_sc_first in
 
@@ -6972,7 +7032,7 @@ let generate_proc ?use_cc e fid params strictness vis_fid spec : EProc.t =
   in
   let cmds_hoist_fdecls =
     annotate_cmds_top_level
-      (Annot.Basic.make_basic ~origin_loc ())
+      (JS_Annot.make_basic ~origin_loc ())
       cmds_hoist_fdecls
   in
 
@@ -7027,13 +7087,13 @@ let generate_proc ?use_cc e fid params strictness vis_fid spec : EProc.t =
   let x_argList_act = fresh_var () in
   let cmds_arg_obj =
     [
-      (Annot.Basic.make_basic ~origin_loc (), None, LArguments x_argList_pre);
-      ( Annot.Basic.make_basic ~origin_loc (),
+      (JS_Annot.make_basic ~origin_loc (), None, LArguments x_argList_pre);
+      ( JS_Annot.make_basic ~origin_loc (),
         None,
         LBasic
           (Assignment (x_argList_act, UnOp (Cdr, UnOp (Cdr, PVar x_argList_pre))))
       );
-      ( Annot.Basic.make_basic ~origin_loc (),
+      ( JS_Annot.make_basic ~origin_loc (),
         None,
         LCall
           ( var_args,
@@ -7041,7 +7101,7 @@ let generate_proc ?use_cc e fid params strictness vis_fid spec : EProc.t =
             [ PVar x_argList_act ],
             None,
             None ) );
-      ( Annot.Basic.make_basic ~origin_loc (),
+      ( JS_Annot.make_basic ~origin_loc (),
         None,
         LBasic (Mutation (PVar var_er, Lit (String "arguments"), PVar var_args))
       );
@@ -7069,6 +7129,18 @@ let generate_proc ?use_cc e fid params strictness vis_fid spec : EProc.t =
   let cmd_ass_re = annotate_cmd cmd_ass_re None in
 
   let cmds_e, _, errs, rets, _, _ = translate_statement new_ctx e in
+
+  (* Fmt.pr "\n----------- GENERATE_PROC -----------\n";
+     cmds_e
+     |> List.iter (fun (a, _b, c) ->
+            Fmt.pr "Cmd_kind\n\t%s\n"
+              (a.JS_Annot.cmd_kind |> JS_Annot.cmd_kind_to_yojson
+             |> Yojson.Safe.pretty_to_string);
+            (* Fmt.pr "String?\n\t%s\n"
+               (match b with
+               | Some s -> s
+               | None -> "None"); *)
+            Fmt.pr "Command\n\t%a\n-----------------------\n" LabCmd.pp c); *)
 
   (* List.iter (fun ({ line_offset; invariant; pre_logic_cmds; post_logic_cmds }, _, _) ->
      Printf.printf "Length: pre: %d \t post: %d\n" (List.length pre_logic_cmds) (List.length post_logic_cmds)) cmds_e; *)
@@ -7157,8 +7229,31 @@ let generate_proc ?use_cc e fid params strictness vis_fid spec : EProc.t =
     @ if_verification [] [ cmd_del_errs ]
     @ [ cmd_err_final ]
   in
+  let original_name =
+    let rec aux lst =
+      match lst with
+      | [] -> ""
+      | (original, unique) :: rest ->
+          if unique = fid then original else aux rest
+    in
+    aux ids
+  in
+  Fmt.pr "\n----------- GENERATE_PROC -----------\n";
+  fid_cmds
+  |> List.iter (fun (a, _b, c) ->
+         Fmt.pr "Cmd_kind\n\t%s\n"
+           (a.JS_Annot.cmd_kind |> JS_Annot.cmd_kind_to_yojson
+          |> Yojson.Safe.pretty_to_string);
+         (* Fmt.pr "String?\n\t%s\n"
+            (match b with
+            | Some s -> s
+            | None -> "None"); *)
+         Fmt.pr "Command\n\t%a\n-----------------------\n" LabCmd.pp c);
+
   {
     name = fid;
+    original_name;
+    (* @TODO FIX THIS ASAP *)
     body = Array.of_list fid_cmds;
     params = var_scope :: var_this :: params;
     spec;
@@ -7172,7 +7267,7 @@ let js2jsil_eval
     e =
   let prog, which_pred = (prog.procs, prog.predecessors) in
 
-  let e, fid_eval, vislist_eval, eval_fun_tbl =
+  let e, fid_eval, vislist_eval, ids, eval_fun_tbl =
     JS2JSIL_Preprocessing.preprocess_eval cc_tbl vis_tbl strictness e fid_parent
       []
   in
@@ -7201,7 +7296,7 @@ let js2jsil_eval
                 | "x__scope" :: rest -> rest
                 | _ -> f_params
               in
-              generate_proc f_body f_id f_params f_strictness vislist None
+              generate_proc f_body f_id f_params f_strictness vislist None ids
           in
           L.verbose (fun m -> m "Eval proc to execute:@\n%a@\n" EProc.pp proc);
           let proc' = JSIL2GIL.jsil2core_proc proc in
@@ -7227,7 +7322,7 @@ let js2jsil_function_constructor_prop
     e =
   let prog, which_pred = (prog.procs, prog.predecessors) in
 
-  let _, new_fid, _, new_fun_tbl =
+  let _, new_fid, _, ids, new_fun_tbl =
     JS2JSIL_Preprocessing.preprocess_eval cc_tbl vis_tbl strictness e
       !Config.entry_point params
   in
@@ -7253,7 +7348,7 @@ let js2jsil_function_constructor_prop
                   | "x__scope" :: rest -> rest
                   | _ -> f_params
                 in
-                generate_proc f_body f_id f_params f_strictness vis_fid None
+                generate_proc f_body f_id f_params f_strictness vis_fid None ids
               in
               L.verbose (fun m ->
                   m "Function constructor proc to execute:@\n%a@\n" EProc.pp
@@ -7287,6 +7382,7 @@ let js2jsil ~filename e for_verification =
 
   Hashtbl.iter
     (fun f_id (_, f_params, f_body, f_strictness, spec) ->
+      (* Debugger_log.log (fun m -> m "FUNCTION ID Is NOW CALLED: %s" f_id); *)
       Option.fold
         ~some:(fun f_body ->
           (* print_normal (Printf.sprintf "Procedure %s is recursive?! %b" f_id f_rec); *)
@@ -7302,7 +7398,7 @@ let js2jsil ~filename e for_verification =
                   in
                   raise (Failure msg)
               in
-              generate_proc f_body f_id f_params f_strictness vis_fid spec
+              generate_proc f_body f_id f_params f_strictness vis_fid spec ids
           in
           Hashtbl.add procedures f_id proc)
         ~none:() f_body)
@@ -7321,6 +7417,6 @@ let js2jsil ~filename e for_verification =
   let macros = Macro.init_tbl () in
   let bispecs = BiSpec.init_tbl () in
   ( EProg.init imports lemmas predicates only_specs procedures macros bispecs
-      (ids @ [ !Config.entry_point ]),
+      ((ids |> List.split |> snd) @ [ !Config.entry_point ]),
     cc_tbl,
     vis_tbl )
