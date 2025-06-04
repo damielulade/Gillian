@@ -24,7 +24,10 @@ end
 
 type init_data = unit
 type err = JSParserErr of JS_Parser.Error.t | JS2GILErr of string
-type tl_ast = JavaScriptSource of JS_Parser.Syntax.exp | JsilSource
+
+type tl_ast =
+  | JavaScriptSource of JS_Parser.Syntax.exp
+  | JsilSource of Jsil_syntax.EProg.t
 
 module Annot = Jsil_syntax.JS_Annot
 
@@ -98,20 +101,25 @@ let parse_and_compile_js path =
 let parse_and_compile_jsil path =
   let jsil_prog = Parsing.parse_jsil_eprog_from_file path in
   let core_prog = JSIL2GIL.jsil2core_prog jsil_prog in
-  Ok core_prog
+  (Ok core_prog, jsil_prog)
 
 let parse_and_compile_files paths =
   let path = List.hd paths in
   let progs =
     if !Javert_utils.Js_config.js then parse_and_compile_js path
-    else Result.map (fun cp -> (cp, JsilSource)) (parse_and_compile_jsil path)
+    else
+      let cp, jp = parse_and_compile_jsil path in
+      Result.map (fun c -> (c, JsilSource jp)) cp
   in
   Result.map
     (fun (core_prog, tl_prog) ->
       create_compilation_result path core_prog tl_prog)
     progs
 
-let other_imports = [ ("jsil", parse_and_compile_jsil) ]
+let other_imports =
+  let f path = fst (parse_and_compile_jsil path) in
+  [ ("jsil", f) ]
+
 let import_paths = Javert_utils.Js_config.import_paths
 let default_import_paths = Some Runtime_sites.Sites.runtime
 
