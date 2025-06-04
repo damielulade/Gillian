@@ -1,7 +1,7 @@
 module Location = Gillian.Utils.Location
 
 type tl_ref = Stmt of int | Expr of int [@@deriving yojson, eq]
-type nest_kind = Fun_call of string [@@deriving yojson, eq]
+type nest_kind = Fun_call of string [@@deriving yojson, eq, show]
 
 type cmd_kind =
   | Harness  (** The harness code preceding the main function *)
@@ -20,7 +20,7 @@ type t = {
   cmd_kind : cmd_kind; [@default Normal false]
   nest_kind : nest_kind option;
 }
-[@@deriving yojson, make, eq]
+[@@deriving yojson, make, eq, show]
 
 let make_basic ?origin_loc ?loop_info () =
   make ?origin_loc ?loop_info ~cmd_kind:Hidden ()

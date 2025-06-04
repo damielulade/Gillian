@@ -875,7 +875,7 @@ module Annot : sig
     This is parametric on the target language. *)
 
   module type S = sig
-    type t [@@deriving yojson]
+    type t [@@deriving yojson, show]
 
     val get_display : t -> string option
 

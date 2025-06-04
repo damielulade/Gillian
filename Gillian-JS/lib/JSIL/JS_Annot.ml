@@ -40,3 +40,9 @@ let is_hidden { cmd_kind; _ } =
   match cmd_kind with
   | Hidden -> true
   | _ -> false
+
+let pp fmt annot =
+  Fmt.pf fmt "%a (%s)" pp_cmd_kind annot.cmd_kind
+    (Option.value annot.display ~default:"???")
+
+let show = Fmt.to_to_string pp

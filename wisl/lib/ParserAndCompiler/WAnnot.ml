@@ -2,7 +2,7 @@ type nest_kind =
   | LoopBody of string
       (** This command nests its loop body an (abstracted) function call *)
   | FunCall of string  (** This command nests the body of a function call *)
-[@@deriving yojson]
+[@@deriving yojson, show]
 
 (** How does this command map to a WISL statment? *)
 type stmt_kind =
@@ -23,7 +23,7 @@ type t = {
   branch_kind : WBranchCase.kind option;
   nest_kind : nest_kind option;
 }
-[@@deriving yojson, make]
+[@@deriving yojson, make, show]
 
 let make_multi
     ?origin_loc

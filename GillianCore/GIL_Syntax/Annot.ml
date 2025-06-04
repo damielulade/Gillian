@@ -1,5 +1,5 @@
 module type S = sig
-  type t [@@deriving yojson]
+  type t [@@deriving yojson, show]
 
   val get_display : t -> string option
   val make_basic : ?origin_loc:Location.t -> ?loop_info:string list -> unit -> t
@@ -11,7 +11,7 @@ end
 
 module Basic = struct
   type t = { origin_loc : Location.t option; loop_info : string list }
-  [@@deriving yojson, make, eq]
+  [@@deriving yojson, make, eq, show]
 
   let get_display (_ : t) : string option = None
   let make_basic = make

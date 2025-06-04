@@ -1,5 +1,5 @@
 module type S = sig
-  type t [@@deriving yojson]
+  type t [@@deriving yojson, show]
 
   val get_display : t -> string option
   val make_basic : ?origin_loc:Location.t -> ?loop_info:string list -> unit -> t

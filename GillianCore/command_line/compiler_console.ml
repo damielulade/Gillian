@@ -25,11 +25,7 @@ module Make
 
   let process_files files =
     let+ progs = PC.parse_and_compile_files files in
-    let pp_annot fmt annot =
-      Fmt.pf fmt "%a"
-        (Yojson.Safe.pretty_print ?std:None)
-        (PC.Annot.to_yojson annot)
-    in
+    let pp_annot = PC.Annot.pp in
     List.iteri
       (fun i (path, prog) ->
         let init_data = if i = 0 then ID.to_yojson progs.init_data else `Null in

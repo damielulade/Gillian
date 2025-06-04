@@ -1,5 +1,5 @@
 type kind = If_else_kind | For_loop_kind | While_loop_kind
-[@@deriving yojson, eq]
+[@@deriving yojson, eq, show]
 
 type case =
   | If_else of bool

@@ -53,10 +53,7 @@ struct
       in
       Ok (labeled_prog, init_data, None)
 
-  let pp_annot fmt annot =
-    Fmt.pf fmt "%a"
-      (Yojson.Safe.pretty_print ?std:None)
-      (PC.Annot.to_yojson annot)
+  let pp_annot = PC.Annot.pp
 
   let emit_specs e_prog prog file =
     let () = Prog.update_specs e_prog MP.(prog.prog) in
