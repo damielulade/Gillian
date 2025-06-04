@@ -877,6 +877,8 @@ module Annot : sig
   module type S = sig
     type t [@@deriving yojson]
 
+    val get_display : t -> string option
+
     val make_basic :
       ?origin_loc:Location.t -> ?loop_info:string list -> unit -> t
 

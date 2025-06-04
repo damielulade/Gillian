@@ -29,6 +29,7 @@ let get_origin_loc { origin_loc; _ } = origin_loc
 let get_loop_info { loop_info; _ } = loop_info
 let set_loop_info loop_info annot = { annot with loop_info }
 let is_hidden (_ : t) = false
+let get_display { display; _ } = display
 
 let set_end ?(is_end = true) t =
   let cmd_kind =

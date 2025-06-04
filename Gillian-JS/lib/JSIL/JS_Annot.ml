@@ -34,6 +34,7 @@ let make_multi ?origin_loc ?loop_info ?display () =
 let get_origin_loc { origin_loc; _ } = origin_loc
 let get_loop_info { loop_info; _ } = loop_info
 let set_loop_info loop_info annot = { annot with loop_info }
+let get_display { display; _ } = display
 
 let is_hidden { cmd_kind; _ } =
   match cmd_kind with

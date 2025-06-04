@@ -43,6 +43,7 @@ let make_basic ?origin_loc ?loop_info () =
 let get_origin_loc { origin_loc; _ } = origin_loc
 let get_loop_info { loop_info; _ } = loop_info
 let set_loop_info loop_info annot = { annot with loop_info }
+let get_display (_ : t) : string option = None
 
 let is_hidden { stmt_kind; _ } =
   match stmt_kind with

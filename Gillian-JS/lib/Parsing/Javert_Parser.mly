@@ -652,6 +652,7 @@ cmd_target:
   | lcmd = logic_cmd_target
     { LabCmd.LLogic lcmd }
 
+// TODO come back here
 cmd_with_annot:
   | cmd = cmd_target
     {
@@ -675,7 +676,9 @@ cmd_with_annot:
           loc_source = $startpos.pos_fname;
         }
       in
-      let annot = Jsil_syntax.JS_Annot.make_internal ~origin_loc () in
+      let display = Fmt.str "%a" LabCmd.pp cmd
+      in
+      let annot = Jsil_syntax.JS_Annot.make_internal ~display ~origin_loc () in
       annot, cmd
     }
 
