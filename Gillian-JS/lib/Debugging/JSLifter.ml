@@ -1,6 +1,7 @@
 open Debugger.Utils
 open Syntaxes.Option
 module PC = Js2jsil_lib.JS2GIL_ParserAndCompiler
+module DL = Debugger_log
 
 module Make
     (Gil : Gillian.Debugger.Lifter.Gil_fallback_lifter.Gil_lifter_with_state)
@@ -10,30 +11,25 @@ struct
     include LifterTypes.Make (V)
     include LifterTypes
   end
-  (* DONE *)
 
-  module State = State.Make (Gil) (* DONE *)
-  module Utils = LifterUtils.Make (Gil) (State) (* DONE *)
-  module Insert_new_cmd = InsertNewCmd.Make (Gil) (State) (Utils) (* DONE *)
-  module Partial_cmds = PartialCmds.Make (V) (Types) (* DONE *)
+  module State = State.Make (Gil)
+  module Utils = LifterUtils.Make (Gil) (State)
+  module Insert_new_cmd = InsertNewCmd.Make (Gil) (State) (Utils)
+  module PartialCommands = PartialCommands.Make (V) (Types)
 
   module Init_or_handle =
-    (* DONE *)
-      InitOrHandle.Make (Gil) (V) (State) (Types) (Partial_cmds)
-        (Insert_new_cmd)
+    InitOrHandle.Make (Gil) (V) (State) (Types) (PartialCommands)
+      (Insert_new_cmd)
 
   include StepFuncs.Make (Gil) (V) (State) (Utils) (Types) (Init_or_handle)
-
-  (* @@@@ TODO *)
   include Types
   include State
-  include VariableHandling.Make (* DONE *)
-  open Exec_map
+  include VariableHandling.Make
 
   let init ~proc_name ~all_procs:_ tl_ast prog =
     let gil_state = Gil.get_state () in
     let+ tl_ast = tl_ast in
-    let partial_cmds = Partial_cmds.init () in
+    let partial_cmds = PartialCommands.init () in
     let state =
       {
         proc_name;
@@ -71,7 +67,7 @@ struct
     | Some x -> x
 
   let dump = to_yojson
-  let get_matches_at_id id { map; _ } = (get_exn map id).data.matches
+  let get_matches_at_id id { map; _ } = (Exec_map.get_exn map id).data.matches
 
   let memory_error_to_exception_info _info : exception_info =
     { id = "unknown"; description = Some "Error lifting not supported yet!" }
