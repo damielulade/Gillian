@@ -4,6 +4,7 @@ open Gillian.Debugger.Lifter
 open Javert_utils
 open LifterTypes
 module PC = Js2jsil_lib.JS2GIL_ParserAndCompiler
+module DL = Debugger_log
 
 module Make
     (Gil : Gillian.Debugger.Lifter.Gil_fallback_lifter.Gil_lifter_with_state)
@@ -11,7 +12,7 @@ module Make
     (State : State.S with type gil_state_t = Gil.Lifter.t)
     (Types : sig
       type cmd_report = V.SAInterpreter.Logging.ConfigReport.t
-      type exec_data = cmd_report executed_cmd_data
+      type exec_data = cmd_report executed_cmd_data [@@deriving yojson]
     end)
     (PartialCmds : sig
       val handle :
@@ -32,7 +33,7 @@ module Make
     end) =
 struct
   open State
-  (* open Types *)
+  open Types
 
   let get_prev ~state ~gil_case ~prev_id () =
     let { map; _ } = state in
@@ -66,7 +67,16 @@ struct
     let annot = exec_data.cmd_report.annot in
     let { partial_cmds = partials; tl_ast = prog; _ } = state in
     match annot.cmd_kind with
-    | Normal _ | Hidden | Return -> (
+    | Unknown ->
+        let json () =
+          [
+            ("state", to_yojson state);
+            ("gil_case", opt_to_yojson Gil_syntax.Branch_case.to_yojson gil_case);
+            ("exec_data", exec_data_to_yojson exec_data);
+          ]
+        in
+        DL.failwith json "JSLifter: Encountered unknown cmd kind"
+    | Context _ | Exception | Normal _ | Hidden | Return | Internal -> (
         let get_prev = get_prev ~state ~gil_case ~prev_id in
         let partial_result =
           PartialCmds.handle ~prog ~get_prev ~partials ~prev_id exec_data

@@ -6,10 +6,9 @@ open LifterTypes
 open LifterUtils
 open Gillian.Utils
 open Gillian.Utils.Syntaxes.Option
-open Gillian.Debugger
+module DL = Debugger_log
 open Gillian.Debugger.Lifter
 open Gillian.Debugger.Utils
-open Gillian.Debugger.Utils.Exec_map
 
 module Update
     (V : Gillian.Abstraction.Verifier.S
@@ -27,8 +26,10 @@ struct
   let get_is_end ({ cmd_kind; _ } : JS2GIL_ParserAndCompiler.Annot.t) =
     match cmd_kind with
     | Normal b -> Ok b
-    | Hidden -> Ok false
-    | Return -> Ok true
+    | Context b -> Ok b
+    | Hidden | Internal -> Ok false
+    | Return | Exception -> Ok true
+    | Unknown -> Error "HORROR - unknown cmd kind"
 
   let resolve_case
       ?gil_case
@@ -67,7 +68,7 @@ struct
             let callers =
               List.map (fun c -> V.SAInterpreter.Call_stack.(c.pid)) cs
             in
-            Fmt.error "Horror - too great a stach depth change! (%d)\n[%a]"
+            Fmt.error "Horror - too great a stack depth change! (%d)\n[%a]"
               depth_change
               (Fmt.list ~sep:(Fmt.any ", ") Fmt.string)
               callers)
@@ -92,12 +93,12 @@ struct
   let update_funcall_kind
       ~(prog : tl_ast)
       ~(exec_data : exec_data)
-      ~annot
+      ~(annot : JS_Annot.t)
       (partial : partial_data) =
     let cmd_report = exec_data.cmd_report in
     let> () =
       match (partial.funcall_kind, annot.cmd_kind) with
-      | Some Evaluated_funcall, _ | _, Hidden -> None
+      | Some Evaluated_funcall, _ | _, (Unknown | Hidden | Internal) -> None
       | _ -> Some ()
     in
     let> pid =
@@ -106,20 +107,21 @@ struct
       | ECall (_, (Lit (String pid) | PVar pid), _, _) -> Some pid
       | _ -> None
     in
-    let kind = Evaluated_funcall in
-    let _ = prog in
-    let _ = pid in
-    (* @TODO needs to be checked against JSIL and C2 *)
+    let kind =
+      let _ = prog in
+      if List.mem pid JS2JSIL_Helpers.unevaluated_funcs then Unevaluated_funcall
+      else Evaluated_funcall
+    in
     let () = partial.funcall_kind <- Some kind in
     ()
 
   let update_paths ~is_end ~exec_data ~branch_case ~annot ~branch_kind partial =
     let ({ id; next_kind; _ } : exec_data) = exec_data in
     let { ends; unexplored_paths; _ } = partial in
-    match (annot.cmd_kind, next_kind, is_end) with
+    match (JS_Annot.(annot.cmd_kind), next_kind, is_end) with
     | _, Zero, _ -> Ok ()
     | Return, _, _ ->
-        let () = partial.has_return <- true in
+        partial.has_return <- true;
         Ok ()
     | _, One (), false ->
         Stack.push (id, None) unexplored_paths;
@@ -156,7 +158,10 @@ struct
       | _ -> None
     in
     match (annot.cmd_kind, partial.canonical_data, annot.display) with
-    | Hidden, _, _ -> Ok ()
+    | Unknown, _, _ ->
+        Fmt.error "HORROR - trying to get display of %a" pp_cmd_kind
+          annot.cmd_kind
+    | (Hidden | Internal), _, _ -> Ok ()
     | _, None, Some display ->
         let** callers, stack_direction = get_stack_info ~partial exec_data in
         let JS_Annot.{ nest_kind; _ } = annot in
@@ -171,11 +176,8 @@ struct
         Ok ()
     | _ -> Ok ()
 
-  let insert_id_and_case
-      ~prev_id
-      ~(exec_data : exec_data)
-      ~id
-      ({ all_ids; _ } : partial_data) =
+  let insert_id_and_case ~prev_id ~exec_data ~id ({ all_ids; _ } : partial_data)
+      =
     let annot, gil_case =
       let { cmd_report; _ } = exec_data in
       V.SAInterpreter.Logging.ConfigReport.
@@ -188,10 +190,9 @@ struct
     let kind = annot.branch_kind in
     let++ case =
       match prev_kind_case with
-      (* @TODO this case should be the other way round, but it doesn't compile that way*)
       | Some (prev_kind, prev_case) ->
           resolve_case ?gil_case prev_kind prev_case
-      | None -> Ok Unknown
+      | None -> Ok Js_branch_case.(Unknown)
     in
     Ext_list.add (id, (kind, case)) all_ids;
     (kind, case)
@@ -279,7 +280,7 @@ struct
         let c =
           {
             id = all_ids |> List.rev |> List.hd;
-            display = "<error";
+            display = "<error>";
             callers;
             stack_direction = None;
             nest_kind = None;
@@ -326,7 +327,7 @@ struct
       in
       let++ cases = ends_to_cases ~is_unevaluated_funcall ~nest_kind ends in
       match cases with
-      | [] -> Zero
+      | [] -> Exec_map.Zero
       | [ (Case (Unknown, _), _) ] ->
           One (Option.get (List_utils.last all_ids), None)
       | _ -> Many cases
@@ -349,7 +350,7 @@ struct
   let update = Update.f ~finish
   let init () = Hashtbl.create 0
 
-  let init_partial ~prev =
+  let create_partial ~prev =
     {
       prev;
       all_ids = Ext_list.make ();
@@ -362,7 +363,7 @@ struct
       has_return = false;
     }
 
-  let find_or_init ~partials ~get_prev prev_id =
+  let get_or_create_partial ~partials ~get_prev prev_id =
     let partial =
       let* prev_id = prev_id in
       Hashtbl.find_opt partials prev_id
@@ -371,10 +372,10 @@ struct
     | Some p -> Ok p
     | None ->
         let++ prev = get_prev () in
-        init_partial ~prev
+        create_partial ~prev
 
   let failwith ~exec_data ?partial ~partials msg =
-    Logging.failwith
+    DL.failwith
       (fun () ->
         [
           ("exec_data", exec_data_to_yojson exec_data);
@@ -385,7 +386,7 @@ struct
 
   let handle ~prog ~(partials : t) ~get_prev ~prev_id exec_data =
     let partial =
-      find_or_init ~partials ~get_prev prev_id
+      get_or_create_partial ~partials ~get_prev prev_id
       |> Result_utils.or_else (fun e -> failwith ~exec_data ~partials e)
     in
     Hashtbl.replace partials exec_data.id partial;
