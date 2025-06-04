@@ -197,12 +197,23 @@ let jsil2gil_bispec (bispec : BiSpec.t) : GBiSpec.t =
     bispec_normalised = bispec.normalised;
   }
 
-let jsil2core (lab : string option) (cmd : LabCmd.t) :
-    (string option * string GCmd.t) list =
+let jsil2core (lcmd : JS_Annot.t * string option * LabCmd.t) :
+    (JS_Annot.t * string option * string GCmd.t) list =
+  let annot, lab, cmd = lcmd in
   let fe = jsil2gil_expr in
+  let partial_annot, last_annot =
+    match annot.cmd_kind with
+    | Normal true ->
+        ( { annot with cmd_kind = Normal false },
+          { annot with cmd_kind = Normal true } )
+    | Context true ->
+        ( { annot with cmd_kind = Context false },
+          { annot with cmd_kind = Context true } )
+    | _ -> (annot, annot)
+  in
   match cmd with
-  | LBasic Skip -> [ (lab, GCmd.Skip) ]
-  | LBasic (Assignment (x, e)) -> [ (lab, GCmd.Assignment (x, fe e)) ]
+  | LBasic Skip -> [ (annot, lab, GCmd.Skip) ]
+  | LBasic (Assignment (x, e)) -> [ (annot, lab, GCmd.Assignment (x, fe e)) ]
   (*
       C(x := new(l1, l2) :-
         lab: aux1 := [new](l1, l2);
@@ -218,7 +229,7 @@ let jsil2core (lab : string option) (cmd : LabCmd.t) :
         GCmd.LAction (aux1, JSILNames.alloc, [ e1; e2 ])
       in
       let cmd2 : string GCmd.t = Assignment (x, e') in
-      [ (lab, cmd1); (None, cmd2) ]
+      [ (partial_annot, lab, cmd1); (last_annot, None, cmd2) ]
   (*
        C(x := [e1, e2]) :-
           lab:  aux1 := e1;
@@ -248,12 +259,12 @@ let jsil2core (lab : string option) (cmd : LabCmd.t) :
       in
       let cmd6 : string GCmd.t = Assignment (x, lnth_expr) in
       [
-        (lab, cmd1);
-        (None, cmd2);
-        (None, cmd3);
-        (None, cmd4);
-        (Some then_lab, cmd5);
-        (Some else_lab, cmd6);
+        (partial_annot, lab, cmd1);
+        (partial_annot, None, cmd2);
+        (partial_annot, None, cmd3);
+        (partial_annot, None, cmd4);
+        (partial_annot, Some then_lab, cmd5);
+        (last_annot, Some else_lab, cmd6);
       ]
   (*
        C([e1, e2] := e3) :-
@@ -280,7 +291,13 @@ let jsil2core (lab : string option) (cmd : LabCmd.t) :
       let cmd5 : string GCmd.t =
         LAction (aux5, JSILNames.setCell, [ e1'; e2'; Expr.PVar aux3 ])
       in
-      [ (lab, cmd1); (None, cmd2); (None, cmd3); (None, cmd4); (None, cmd5) ]
+      [
+        (partial_annot, lab, cmd1);
+        (partial_annot, None, cmd2);
+        (partial_annot, None, cmd3);
+        (partial_annot, None, cmd4);
+        (last_annot, None, cmd5);
+      ]
   (*
        C(delete(e1, e2)) :-
           lab:  aux1 := e1;
@@ -315,12 +332,12 @@ let jsil2core (lab : string option) (cmd : LabCmd.t) :
         LAction (aux4, JSILNames.setCell, [ e1'; e2'; Expr.Lit Nono ])
       in
       [
-        (lab, cmd1);
-        (None, cmd2);
-        (None, cmd3);
-        (None, cmd4);
-        (Some then_lab, cmd5);
-        (Some else_lab, cmd6);
+        (partial_annot, lab, cmd1);
+        (partial_annot, None, cmd2);
+        (partial_annot, None, cmd3);
+        (partial_annot, None, cmd4);
+        (partial_annot, Some then_lab, cmd5);
+        (last_annot, Some else_lab, cmd6);
       ]
   (*
       C(deleteObj (e)) :-
@@ -348,11 +365,11 @@ let jsil2core (lab : string option) (cmd : LabCmd.t) :
       let cmd4 : string GCmd.t = resource_error [ e1 ] in
       let cmd5 : string GCmd.t = LAction (aux3, JSILNames.delObj, [ e1 ]) in
       [
-        (lab, cmd1);
-        (None, cmd2);
-        (None, cmd3);
-        (Some then_lab, cmd4);
-        (Some else_lab, cmd5);
+        (partial_annot, lab, cmd1);
+        (partial_annot, None, cmd2);
+        (partial_annot, None, cmd3);
+        (partial_annot, Some then_lab, cmd4);
+        (last_annot, Some else_lab, cmd5);
       ]
   (*
        C(x := hasField(e1, e2)) :-
@@ -375,7 +392,12 @@ let jsil2core (lab : string option) (cmd : LabCmd.t) :
         LAction (aux3, JSILNames.getCell, [ Expr.PVar aux1; Expr.PVar aux2 ])
       in
       let cmd4 : string GCmd.t = Assignment (x, e) in
-      [ (lab, cmd1); (None, cmd2); (None, cmd3); (None, cmd4) ]
+      [
+        (partial_annot, lab, cmd1);
+        (partial_annot, None, cmd2);
+        (partial_annot, None, cmd3);
+        (last_annot, None, cmd4);
+      ]
   (*
        C(x := getfields(e)) :-
          lab:  aux1 := e
@@ -402,11 +424,11 @@ let jsil2core (lab : string option) (cmd : LabCmd.t) :
         Assignment (x, BinOp (PVar aux2, LstNth, Expr.one_i))
       in
       [
-        (lab, cmd1);
-        (None, cmd2);
-        (None, cmd3);
-        (Some then_lab, cmd4);
-        (Some else_lab, cmd5);
+        (partial_annot, lab, cmd1);
+        (partial_annot, None, cmd2);
+        (partial_annot, None, cmd3);
+        (partial_annot, Some then_lab, cmd4);
+        (last_annot, Some else_lab, cmd5);
       ]
   (*
        C(x := MetaData(e)) :-
@@ -435,42 +457,38 @@ let jsil2core (lab : string option) (cmd : LabCmd.t) :
         Assignment (x, BinOp (Expr.PVar aux2, LstNth, Expr.one_i))
       in
       [
-        (lab, cmd1);
-        (None, cmd2);
-        (None, cmd3);
-        (Some then_lab, cmd4);
-        (Some else_lab, cmd5);
+        (partial_annot, lab, cmd1);
+        (partial_annot, None, cmd2);
+        (partial_annot, None, cmd3);
+        (partial_annot, Some then_lab, cmd4);
+        (last_annot, Some else_lab, cmd5);
       ]
-  | LLogic lcmd -> [ (lab, GCmd.Logic (jsil2gil_lcmd lcmd)) ]
-  | LGoto j -> [ (lab, GCmd.Goto j) ]
-  | LGuardedGoto (e, j, k) -> [ (lab, GCmd.GuardedGoto (fe e, j, k)) ]
+  | LLogic lcmd -> [ (annot, lab, GCmd.Logic (jsil2gil_lcmd lcmd)) ]
+  | LGoto j -> [ (annot, lab, GCmd.Goto j) ]
+  | LGuardedGoto (e, j, k) -> [ (annot, lab, GCmd.GuardedGoto (fe e, j, k)) ]
   | LCall (x, e, es, j, subst) ->
-      [ (lab, GCmd.Call (x, fe e, List.map fe es, j, subst)) ]
-  | LECall (x, e, es, j) -> [ (lab, GCmd.ECall (x, fe e, List.map fe es, j)) ]
-  | LApply (x, e, j) -> [ (lab, GCmd.Apply (x, fe e, j)) ]
-  | LArguments x -> [ (lab, GCmd.Arguments x) ]
+      [ (annot, lab, GCmd.Call (x, fe e, List.map fe es, j, subst)) ]
+  | LECall (x, e, es, j) ->
+      [ (annot, lab, GCmd.ECall (x, fe e, List.map fe es, j)) ]
+  | LApply (x, e, j) -> [ (annot, lab, GCmd.Apply (x, fe e, j)) ]
+  | LArguments x -> [ (annot, lab, GCmd.Arguments x) ]
   | LPhiAssignment es ->
       let es = List.map (fun (x, e) -> (x, List.map fe e)) es in
-      [ (lab, GCmd.PhiAssignment es) ]
-  | LReturnNormal -> [ (lab, GCmd.ReturnNormal) ]
-  | LReturnError -> [ (lab, GCmd.ReturnError) ]
+      [ (annot, lab, GCmd.PhiAssignment es) ]
+  | LReturnNormal -> [ (annot, lab, GCmd.ReturnNormal) ]
+  | LReturnError -> [ (annot, lab, GCmd.ReturnError) ]
 
 let jsil2core_proc (proc : EProc.t) : ('a, string) GProc.t =
-  let body = Array.to_list proc.body in
-  let body' =
-    List.concat
-      (List.map
-         (fun (annot, lab, cmd) ->
-           let cmds = jsil2core lab cmd in
-           List.map (fun (lab, cmd) -> (annot, lab, cmd)) cmds)
-         body)
+  let body =
+    proc.body |> Array.to_list |> List.map jsil2core |> List.concat
+    |> Array.of_list
   in
   {
     proc_name = proc.name;
     proc_source_path = None;
     proc_internal = false;
     (* TODO (Alexis): Set depending on module of proc *)
-    proc_body = Array.of_list body';
+    proc_body = body;
     proc_params = proc.params;
     proc_spec = Option.map jsil2gil_spec proc.spec;
     proc_aliases = [ proc.original_name ];
