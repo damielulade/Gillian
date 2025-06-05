@@ -46,6 +46,19 @@ and literal =
             try Ok (Z.of_string s) with Invalid_argument m -> Error m)
         | _ -> Error "Invalid yojson for Z"])
   | Num of float
+      [@to_yojson
+        fun f ->
+          if f = infinity then `String "Infinity"
+          else if f = neg_infinity then `String "-Infinity"
+          else if f = nan then `String "NaN"
+          else `Float f]
+      [@of_yojson
+        function
+        | `String "Infinity" -> infinity
+        | `String "-Infinity" -> neg_infinity
+        | `String "NaN" -> nan
+        | `Float f -> f
+        | _ -> Error "Invalid yojson for float"]
   | String of string
   | Loc of string
   | Type of typ

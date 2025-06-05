@@ -77,11 +77,11 @@ struct
     { id = "unknown"; description = Some "Error lifting not supported yet!" }
 
   let parse_and_compile_files ~entrypoint files =
-    let entrypoint, _override =
-      if Utils.(!Config.current_exec_mode = Exec_mode.Symbolic) then
-        (Js2jsil_lib.JS2JSIL_Helpers.main_fid, true)
-      else (entrypoint, false)
-    in
+    (* let entrypoint, _override =
+         if Utils.(!Config.current_exec_mode = Exec_mode.Symbolic) then
+           (Js2jsil_lib.JS2JSIL_Helpers.main_fid, true)
+         else (entrypoint, false)
+       in *)
     PC.parse_and_compile_files files |> Result.map (fun r -> (r, entrypoint))
 
   let _handle_cmd prev_id gil_case exec_data state =

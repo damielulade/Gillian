@@ -890,7 +890,7 @@ struct
         let next =
           let* id = id in
           L.Log_queryer.get_next_reports id
-          |> List.find_map (fun (_, content, type_) ->
+          |> List.find_map (fun (_, type_, content) ->
                  if type_ = Content_type.cmd then
                    let cmd =
                      content |> of_yojson_string Logging.ConfigReport.of_yojson
