@@ -32,14 +32,6 @@ let annotate_cmd_top_level metadata lcmd =
 let annotate_cmds_top_level metadata cmds =
   List.map (annotate_cmd_top_level metadata) cmds
 
-let rec set_final_annot
-    (cs : (JS_Annot.t * 'a option * LabCmd.t) list)
-    (cmd_kind : JS_Annot.cmd_kind) =
-  match cs with
-  | [] -> []
-  | [ (annot, str, cmd) ] -> [ ({ annot with cmd_kind }, str, cmd) ]
-  | hd :: tl -> hd :: set_final_annot tl cmd_kind
-
 let if_verification a b =
   let cond = Exec_mode.is_verification_exec !Config.current_exec_mode in
   if cond then a else b
@@ -4597,10 +4589,10 @@ and translate_statement ?display tr_ctx e =
             (None, LGoto finally);
             (Some new_err2, cmd_ass_xret1);
             (None, LGoto tr_ctx.tr_err_lab);
-            (Some finally, cmd_ass_xret2);
           ]
+      @ annotate_cmds_with (JS_Annot.Normal true)
+          [ (Some finally, cmd_ass_xret2) ]
     in
-    let cmds = set_final_annot cmds (JS_Annot.Normal true) in
 
     ( cmds,
       x_ret_2,
@@ -5680,7 +5672,6 @@ and translate_statement ?display tr_ctx e =
       in
       let errs = errs1 @ errs_x1_v @ [ x1_b ] @ errs2 @ errs_x2_v in
       (* Non-invariant commands go before all commands *)
-      let cmds = set_final_annot cmds (JS_Annot.Normal true) in
       let cmds = prefix_lcmds lcmds None cmds in
       (cmds, PVar x_ret_5, errs, rets2, outer_breaks, outer_conts)
   | JS_Parser.Syntax.ForIn (e1, e2, e3) ->
@@ -5961,16 +5952,17 @@ and translate_statement ?display tr_ctx e =
               (*           goto [ x_ret_4 = empty ] next5 next6                       *)
               (Some next5, LBasic Skip);
               (* next5:    skip                                                         *)
-              (Some next6, cmd_phi_xret5)
-              (* next6:    x_ret_5 := PHI(x_ret_0, x_ret_1, x_ret_4)                    *);
+            ]
+        @ annotate_cmds_with (JS_Annot.Normal true)
+            [
+              (Some next6, cmd_phi_xret5);
+              (* next6:    x_ret_5 := PHI(x_ret_0, x_ret_1, x_ret_4)                    *)
             ]
       in
       let errs =
         errs2 @ errs_x2_v @ [ x4; xlf ] @ errs1 @ [ x5 ] @ errs3 @ errs_x3_v
       in
-      let cmds =
-        annotate_first_cmd (set_final_annot cmds (JS_Annot.Normal true))
-      in
+      let cmds = annotate_first_cmd cmds in
       (cmds, PVar x_ret_5, errs, rets3, outer_breaks, outer_conts)
   | JS_Parser.Syntax.For (e1, e2, e3, e4) ->
       (*
@@ -6174,7 +6166,6 @@ and translate_statement ?display tr_ctx e =
       let errs =
         errs1 @ errs2 @ errs_x2_v @ [ x2_b ] @ errs4 @ errs_x4_v @ errs3
       in
-      let cmds = set_final_annot cmds (JS_Annot.Normal true) in
       let cmds = prefix_lcmds lcmds None cmds in
       (cmds, PVar x_ret_5, errs, rets4, outer_breaks, outer_conts)
   | JS_Parser.Syntax.Return e -> (
