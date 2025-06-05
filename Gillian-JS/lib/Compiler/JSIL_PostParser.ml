@@ -23,6 +23,16 @@ let populate () : unit =
 let post_parse_lcmd (cmd : JS_Annot.t * string option * LabCmd.t) :
     (JS_Annot.t * string option * LabCmd.t) list =
   let annot, lab, cmd = cmd in
+  let partial_annot, last_annot =
+    match annot.cmd_kind with
+    | Normal true ->
+        ( { annot with cmd_kind = Normal false },
+          { annot with cmd_kind = Normal true } )
+    | Context true ->
+        ( { annot with cmd_kind = Context false },
+          { annot with cmd_kind = Context true } )
+    | _ -> (annot, annot)
+  in
   match !Javert_utils.Js_config.cosette with
   | true -> [ (annot, lab, cmd) ]
   | false -> (
@@ -32,18 +42,18 @@ let post_parse_lcmd (cmd : JS_Annot.t * string option * LabCmd.t) :
           let unfold_macro =
             LCmd.Macro (JS2JSIL_Helpers.macro_GPVU_name, [ r_arg ])
           in
-          [ (annot, lab, cmd); (annot, None, LLogic unfold_macro) ]
+          [ (partial_annot, lab, cmd); (last_annot, None, LLogic unfold_macro) ]
       | LCall (_, Lit (String p_name), [ r_arg; _ ], _, _)
         when p_name = JS2JSIL_Helpers.putValueName ->
           let unfold_macro =
             LCmd.Macro (JS2JSIL_Helpers.macro_GPVU_name, [ r_arg ])
           in
-          [ (annot, lab, cmd); (annot, None, LLogic unfold_macro) ]
+          [ (partial_annot, lab, cmd); (last_annot, None, LLogic unfold_macro) ]
       | LCall (_, Lit (String p_name), [ _; _ ], _, _)
         when p_name = JS2JSIL_Helpers.hasPropertyName ->
           [
-            (annot, lab, cmd);
-            ( annot,
+            (partial_annot, lab, cmd);
+            ( last_annot,
               None,
               LLogic (SL (GUnfold JS2JSIL_Helpers.pi_predicate_name)) );
           ]
