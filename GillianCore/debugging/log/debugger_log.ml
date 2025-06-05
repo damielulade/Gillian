@@ -29,7 +29,7 @@ module Public = struct
     Printf.fprintf out "%s\n" line;
     close_out out
 
-  let enabled () = Option.is_some !rpc_ref
+  let enabled () = !Utils.Config.debug_log && Option.is_some !rpc_ref
   let should_log_verbose v = !Utils.Config.debug_log_verbose || not v
   let reset () = if Sys.file_exists file_name then Sys.remove file_name else ()
 
