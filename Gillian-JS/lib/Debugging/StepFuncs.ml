@@ -18,7 +18,9 @@ module HelperFuncs
     end)
     (Types : sig
       type cmd_report = V.SAInterpreter.Logging.ConfigReport.t
-      type exec_data = cmd_report executed_cmd_data
+      [@@deriving yojson]
+
+      type exec_data = cmd_report executed_cmd_data [@@deriving yojson]
       type _ Effect.t += Step : step_args -> exec_data Effect.t
     end)
     (InitOrHandle : sig
@@ -184,7 +186,9 @@ module Make
     end)
     (Types : sig
       type cmd_report = V.SAInterpreter.Logging.ConfigReport.t
-      type exec_data = cmd_report executed_cmd_data
+      [@@deriving yojson]
+
+      type exec_data = cmd_report executed_cmd_data [@@deriving yojson]
       type _ Effect.t += Step : step_args -> exec_data Effect.t
     end)
     (InitOrHandle : sig
