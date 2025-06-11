@@ -137,14 +137,18 @@ let sanitise name =
   s
 
 let update_codename_annotation annots fresh_name_generator :
-    JS_Parser.Syntax.annotation list * string =
+    string * JS_Parser.Syntax.annotation list * string =
   let ids = List.filter (fun annot -> annot.annot_type = Id) annots in
   match ids with
   | [] ->
       let new_id = fresh_name_generator () in
-      (update_annotation annots Codename new_id, new_id)
+      (* Debugger_log.log (fun m -> m "new_id is %s" new_id); *)
+      ("", update_annotation annots Codename new_id, new_id)
   | [ id ] ->
-      (update_annotation annots Codename id.annot_formula, id.annot_formula)
+      (* Debugger_log.log (fun m -> m "existing id is %s" id.annot_formula);
+         let new_id = fresh_name_generator () in
+         (id.annot_formula, update_annotation annots Codename new_id, new_id) *)
+      ("", update_annotation annots Codename id.annot_formula, id.annot_formula)
   | _ :: _ ->
       raise (Failure "you cannot have more than one identifier per function")
 
@@ -161,7 +165,7 @@ let add_codenames exp =
   let f_m e =
     match e.exp_stx with
     | FunctionExp _ ->
-        let new_annot, id =
+        let _, new_annot, id =
           update_codename_annotation e.exp_annot fresh_anonymous
         in
         code_names := ("", id) :: !code_names;
@@ -170,10 +174,18 @@ let add_codenames exp =
         let name_generator : unit -> string =
          fun () -> fresh_named (sanitise name)
         in
-        let new_annot, id =
+        let _, new_annot, new_id =
           update_codename_annotation e.exp_annot name_generator
         in
-        code_names := (name, id) :: !code_names;
+
+        (* let () =
+             Debugger_log.failwith
+               (fun () -> [])
+                 (* [ ("old", `String old_id); ("name", `String name); ("code_name", `String new_id) ]) *)
+               ("Old is " ^ old_id ^ "; name was " ^ name ^ "; new codename is "
+              ^ new_id)
+           in *)
+        code_names := (name, new_id) :: !code_names;
         { exp with exp_stx = e.exp_stx; exp_annot = new_annot }
     | Try _ ->
         let catch_id = fresh_catch_anonymous () in
@@ -181,8 +193,16 @@ let add_codenames exp =
         { exp with exp_stx = e.exp_stx; exp_annot = annot }
     | _ -> e
   in
-
   let new_exp = js_map f_m exp in
+  (* let () =
+       let cn =
+         !code_names
+         |> List.fold_left
+              (fun acc (x, y) -> acc ^ "\nOld is " ^ x ^ "; new codename is " ^ y)
+              "This is "
+       in
+       Debugger_log.failwith (fun () -> []) cn
+     in *)
   (new_exp, List.rev !code_names)
 
 (********************************************)
@@ -234,6 +254,24 @@ let closure_clarification
                 Some (new_f_id, visited_funs @ [ new_f_id_outer; new_f_id ]))
         | Function (strictness, _, args, fb) ->
             let new_f_id = get_codename e in
+            (* let () =
+                 if Option.value f_name ~default:"" == "foo" then
+                   Debugger_log.failwith
+                     (fun () -> [])
+                     ("NEW_F_ID FOUND IS " ^ new_f_id)
+                 (* else
+                   Debugger_log.failwith
+                     (fun () -> [])
+                     ("Failing worse " ^ new_f_id) *)
+               in *)
+            (* Debugger_log.log (fun m ->
+                m
+                  ~json:
+                    [
+                      ("F_Name", `String (Option.value f_name ~default:""));
+                      ("NEW_F_ID", `String new_f_id);
+                    ]
+                  "In closure clarification"); *)
             let new_f_tbl =
               update_cc_tbl cc_tbl f_id new_f_id (get_all_vars_f fb args)
             in

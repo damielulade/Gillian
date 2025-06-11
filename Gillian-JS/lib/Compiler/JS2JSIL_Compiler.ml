@@ -2,7 +2,7 @@ open Lexing
 open JS2JSIL_Helpers
 open Jslogic.JSLogicCommon
 open JS_Utils
-open Javert_utils.Js_branch_case
+open Javert_utils.JS_branch_case
 open Gillian.Utils.Syntaxes.Option
 (* module Gil_syntax = Gillian.Gil_syntax *)
 
@@ -5137,9 +5137,7 @@ and translate_statement ?display tr_ctx e =
       let rec loop decs cmds errs =
         match decs with
         | [] ->
-            Debugger_log.log (fun m -> m "cnbsbsbd");
             let x, empty_ass = make_empty_ass () in
-
             (x, cmds @ annotate (Normal true) [ (None, empty_ass) ], errs)
         | (v, eo) :: rest_decs -> (
             match eo with
@@ -7214,8 +7212,9 @@ let generate_proc ?use_cc e fid params strictness vis_fid spec ids : EProc.t =
   let cmd_end_ctxt = annotate (Context true) (None, LBasic Skip) in
 
   let cmds_e, _, errs, rets, _, _ = translate_statement new_ctx e in
-  Debugger_log.log (fun m ->
-      m "\n%s\n" (JS_Parser.PrettyPrint.string_of_exp true e));
+
+  (* Debugger_log.log (fun m ->
+      m "\n%s\n" (JS_Parser.PrettyPrint.string_of_exp true e)); *)
 
   (* x_dr := undefined *)
   let x_dr = fresh_var () in

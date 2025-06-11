@@ -4,7 +4,7 @@ open Gillian.Debugger.Utils
 open Gil_syntax
 open Javert_utils
 
-type partial_end = Js_branch_case.case * (id * Branch_case.t option)
+type partial_end = JS_branch_case.case * (id * Branch_case.t option)
 [@@deriving to_yojson]
 
 open Js2jsil_lib
@@ -24,10 +24,10 @@ type funcall_kind = Evaluated_funcall | Unevaluated_funcall
 [@@deriving to_yojson]
 
 type partial_data = {
-  prev : (id * Js_branch_case.t option * id list) option;
+  prev : (id * JS_branch_case.t option * id list) option;
       (* Where to put the finished CMD in the map. *)
   all_ids :
-    (id * (Js_branch_case.kind option * Js_branch_case.case)) Ext_list.t;
+    (id * (JS_branch_case.kind option * JS_branch_case.case)) Ext_list.t;
       (* All the Gil CMD IDs that build into this one (and the relevant branch case info). *)
   unexplored_paths : (id * Branch_case.t option) Stack.t;
       (* All paths that haven't been explored yet *)
@@ -45,13 +45,13 @@ type partial_data = {
 type t = (id, partial_data) Hashtbl.t [@@deriving to_yojson]
 
 type finished = {
-  prev : (id * Js_branch_case.t option) option;
+  prev : (id * JS_branch_case.t option) option;
   id : id;
   all_ids : id list;
   display : string;
   matches : Match_map.matching list;
   errors : string list;
-  next_kind : (Js_branch_case.t, branch_data) Exec_map.next_kind;
+  next_kind : (JS_branch_case.t, branch_data) Exec_map.next_kind;
   callers : id list;
   stack_direction : stack_direction option;
   loc : (string * int) option;
@@ -63,13 +63,13 @@ type context = {
   cmd_kind : JS2GIL_ParserAndCompiler.Annot.cmd_kind;
   branch_case : Gil_syntax.Branch_case.t option;
   id : id;
-  prev : (id * Js_branch_case.t option) option;
+  prev : (id * JS_branch_case.t option) option;
   stack_direction : stack_direction option;
   all_ids : id list;
   display : string;
   matches : Match_map.matching list;
   errors : string list;
-  next_kind : (Js_branch_case.t, branch_data) Exec_map.next_kind;
+  next_kind : (JS_branch_case.t, branch_data) Exec_map.next_kind;
   callers : id list;
   loc : (string * int) option;
 }

@@ -1,7 +1,7 @@
 open Javert_utils
 open Gillian.Debugger.Utils.Exec_map
 open LifterTypes
-(* open InsertNewCmd *)
+(* open NewCommandGroup *)
 
 let ( let++ ) f o = Result.map o f
 let ( let** ) o f = Result.bind o f
@@ -26,8 +26,8 @@ struct
   let path_of_id id { gil_state; _ } = Lifter.path_of_id id gil_state
 
   let package_case case : Packaged.branch_case * string =
-    let json = Js_branch_case.to_yojson case in
-    let display = Js_branch_case.display case in
+    let json = JS_branch_case.to_yojson case in
+    let display = JS_branch_case.display case in
     (json, display)
 
   let package_data { id; all_ids; display; matches; errors; submap; _ } =

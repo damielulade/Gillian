@@ -1,5 +1,3 @@
-(* TEMPORARY FILE, COPY OF WISL BRANCH CASE UTILS FILE *)
-
 type kind = IfElseKind | ForLoopKind | WhileLoopKind [@@deriving yojson, eq]
 
 type case =

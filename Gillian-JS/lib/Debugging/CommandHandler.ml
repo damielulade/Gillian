@@ -14,22 +14,22 @@ module Make
       type cmd_report = V.SAInterpreter.Logging.ConfigReport.t
       type exec_data = cmd_report executed_cmd_data [@@deriving yojson]
     end)
-    (PartialCmds : sig
+    (PartialCommands : sig
       val handle :
         prog:tl_ast ->
-        partials:PartialTypes.t ->
+        partials:PartialCommandTypes.t ->
         get_prev:
           (init_data ->
-          ((id * Js_branch_case.t option * id list) option, string) result) ->
+          ((id * JS_branch_case.t option * id list) option, string) result) ->
         prev_id:id option ->
         Types.exec_data ->
-        PartialTypes.partial_result
+        PartialCommandTypes.partial_result
     end)
-    (InsertNewCmd : sig
+    (NewCommandGroup : sig
       val f :
         state:State.t ->
-        (PartialTypes.finished, PartialTypes.context) Either.t ->
-        (id, Js_branch_case.t, cmd_data, branch_data) node
+        (PartialCommandTypes.finished, PartialCommandTypes.context) Either.t ->
+        (id, JS_branch_case.t, cmd_data, branch_data) node
     end) =
 struct
   open State
@@ -79,14 +79,14 @@ struct
     | Context _ | Exception | Normal _ | Hidden | Return | Internal -> (
         let get_prev = get_prev ~state ~gil_case ~prev_id in
         let partial_result =
-          PartialCmds.handle ~prog ~get_prev ~partials ~prev_id exec_data
+          PartialCommands.handle ~prog ~get_prev ~partials ~prev_id exec_data
         in
         match partial_result with
         | FinishedCommand finished ->
-            let cmd = InsertNewCmd.f ~state (Either.Left finished) in
+            let cmd = NewCommandGroup.f ~state (Either.Left finished) in
             Either.Right cmd
         | FinishedContext context ->
-            let cmd = InsertNewCmd.f ~state (Either.Right context) in
+            let cmd = NewCommandGroup.f ~state (Either.Right context) in
             (* Either.Left (cmd.data.id, None) *)
             Either.Right cmd
         | StepAgain (id, case) -> Either.Left (id, case))

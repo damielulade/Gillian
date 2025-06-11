@@ -14,15 +14,15 @@ struct
 
   module State = State.Make (Gil)
   module LifterUtils = LifterUtils.Make (Gil) (State)
-  module Insert_new_cmd = InsertNewCmd.Make (Gil) (State) (LifterUtils)
+  module NewCommandGroup = NewCommandGroup.Make (Gil) (State) (LifterUtils)
   module PartialCommands = PartialCommands.Make (V) (Types)
 
-  module Init_or_handle =
-    InitOrHandle.Make (Gil) (V) (State) (Types) (PartialCommands)
-      (Insert_new_cmd)
+  module CommandHandler =
+    CommandHandler.Make (Gil) (V) (State) (Types) (PartialCommands)
+      (NewCommandGroup)
 
   include
-    StepFuncs.Make (Gil) (V) (State) (LifterUtils) (Types) (Init_or_handle)
+    Navigation.Make (Gil) (V) (State) (LifterUtils) (Types) (CommandHandler)
 
   include Types
   include State
@@ -54,7 +54,7 @@ struct
           | None -> (None, None, [])
         in
         let exec_data = Effect.perform (Step (id, case, path)) in
-        match Init_or_handle.f ~state ?prev_id:id ?gil_case:case exec_data with
+        match CommandHandler.f ~state ?prev_id:id ?gil_case:case exec_data with
         | Either.Left (id, case) -> aux (Some (id, case))
         | Either.Right map -> map.data.id
       in
@@ -85,5 +85,5 @@ struct
     PC.parse_and_compile_files files |> Result.map (fun r -> (r, entrypoint))
 
   let _handle_cmd prev_id gil_case exec_data state =
-    Init_or_handle.f ~state ~prev_id ?gil_case exec_data
+    CommandHandler.f ~state ~prev_id ?gil_case exec_data
 end

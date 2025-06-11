@@ -4,7 +4,7 @@ open Gillian.Utils
 open Gillian.Utils.Prelude
 open Gillian.Utils.Syntaxes.Option
 open Javert_utils
-open Javert_utils.Js_branch_case
+open Javert_utils.JS_branch_case
 open LifterUtils
 open LifterTypes
 module DL = Debugger_log
@@ -14,7 +14,7 @@ module Make
     (State : State.S with type gil_state_t = Gil.Lifter.t)
     (Utils : sig
       val package_node :
-        ('a, Js_branch_case.t, cmd_data, 'b) node ->
+        ('a, JS_branch_case.t, cmd_data, 'b) node ->
         ('a, Packaged.branch_case, Packaged.cmd_data, string) node
     end) =
 struct
@@ -25,9 +25,9 @@ struct
     let finished =
       match finished_partial with
       | Either.Left finished_command ->
-          PartialTypes.finished_to_yojson finished_command
+          PartialCommandTypes.finished_to_yojson finished_command
       | Either.Right finished_context ->
-          PartialTypes.context_to_yojson finished_context
+          PartialCommandTypes.context_to_yojson finished_context
     in
     DL.failwith
       (fun () -> [ ("state", to_yojson state); ("finished_partial", finished) ])
@@ -40,8 +40,8 @@ struct
   let make_new_cmd ~func_return_label finished_partial =
     let data, next_kind =
       match finished_partial with
-      | Either.Left (command : PartialTypes.finished) ->
-          let PartialTypes.
+      | Either.Left (command : PartialCommandTypes.finished) ->
+          let PartialCommandTypes.
                 {
                   all_ids;
                   id;
@@ -71,8 +71,8 @@ struct
               loc;
             },
             next_kind )
-      | Either.Right (context : PartialTypes.context) ->
-          let PartialTypes.
+      | Either.Right (context : PartialCommandTypes.context) ->
+          let PartialCommandTypes.
                 {
                   all_ids;
                   id;
@@ -250,7 +250,7 @@ struct
         Fmt.error "update_caller_branches - caller %a not found" pp_id caller_id
 
   let resolve_func_branches ~state finished_partial =
-    let PartialTypes.{ all_ids; next_kind; callers; has_return; _ } =
+    let PartialCommandTypes.{ all_ids; next_kind; callers; has_return; _ } =
       finished_partial
     in
     match (next_kind, has_return, callers) with
@@ -270,9 +270,9 @@ struct
   let f ~state finished_partial =
     let r =
       match finished_partial with
-      | Either.Left (command : PartialTypes.finished) ->
-          let PartialTypes.{ id; all_ids; prev; stack_direction; has_return; _ }
-              =
+      | Either.Left (command : PartialCommandTypes.finished) ->
+          let PartialCommandTypes.
+                { id; all_ids; prev; stack_direction; has_return; _ } =
             command
           in
           let _ = has_return in
@@ -282,8 +282,8 @@ struct
           insert state.map ~id ~all_ids new_cmd;
           Effect.perform (Node_updated (id, Some (package_node new_cmd)));
           Ok new_cmd
-      | Either.Right (context : PartialTypes.context) ->
-          let PartialTypes.{ id; all_ids; prev; stack_direction; _ } =
+      | Either.Right (context : PartialCommandTypes.context) ->
+          let PartialCommandTypes.{ id; all_ids; prev; stack_direction; _ } =
             context
           in
           let new_cmd = make_new_cmd ~func_return_label:None finished_partial in

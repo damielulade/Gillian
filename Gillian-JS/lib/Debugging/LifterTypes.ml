@@ -24,14 +24,14 @@ type cmd_data = {
   matches : Match_map.matching list;
   errors : string list;
   submap : id Exec_map.submap;
-  prev : (id * Js_branch_case.t option) option;
+  prev : (id * JS_branch_case.t option) option;
   callers : id list;
   func_return_label : (string * int) option;
   loc : (string * int) option;
 }
 [@@deriving yojson]
 
-type map = (id, Js_branch_case.t, cmd_data, branch_data) Exec_map.map
+type map = (id, JS_branch_case.t, cmd_data, branch_data) Exec_map.map
 [@@deriving yojson]
 
 module Make

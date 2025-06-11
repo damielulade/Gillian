@@ -9,7 +9,7 @@ module type S = sig
     gil_state : gil_state_t;
     tl_ast : Types.tl_ast;
     prog : (Types.annot, int) Prog.t;
-    partial_cmds : PartialTypes.t;
+    partial_cmds : PartialCommandTypes.t;
     map : Types.map;
     func_return_map : (Types.id, string * int ref) Hashtbl.t;
     mutable func_return_count : int;
@@ -27,7 +27,7 @@ struct
     gil_state : gil_state_t; [@to_yojson Gil.Lifter.dump]
     tl_ast : Types.tl_ast; [@to_yojson fun _ -> `Null]
     prog : (Types.annot, int) Prog.t; [@to_yojson fun _ -> `Null]
-    partial_cmds : PartialTypes.t;
+    partial_cmds : PartialCommandTypes.t;
     map : Types.map;
     func_return_map : (Types.id, string * int ref) Hashtbl.t;
     mutable func_return_count : int;

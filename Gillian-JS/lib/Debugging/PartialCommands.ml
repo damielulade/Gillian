@@ -14,17 +14,17 @@ module Finish
     (V : Gillian.Abstraction.Verifier.S
            with type annot = JS2GIL_ParserAndCompiler.Annot.t) =
 struct
-  open PartialTypes
+  open PartialCommandTypes
 
   let ends_to_cases
       ~is_unevaluated_funcall
       ~nest_kind
-      (ends : (Js_branch_case.case * branch_data) list) =
+      (ends : (JS_branch_case.case * branch_data) list) =
     let- () =
       match (nest_kind, ends) with
       | Some (FunCall _), [ (Unknown, bdata) ] ->
           if is_unevaluated_funcall then None
-          else Some (Ok [ (Js_branch_case.FuncExitPlaceholder, bdata) ])
+          else Some (Ok [ (JS_branch_case.FuncExitPlaceholder, bdata) ])
       | Some (FunCall _), _ ->
           Some (Error "Unexpected branching in cmd with FunCall nest")
       | _ -> None
@@ -43,11 +43,11 @@ struct
            let total, count = Hashtbl.find counts kind in
            let ix =
              match (kind, total) with
-             | Js_branch_case.(IfElse _ | WhileLoop _ | ForLoop _), 1 -> -1
+             | JS_branch_case.(IfElse _ | WhileLoop _ | ForLoop _), 1 -> -1
              | _ -> count
            in
            let () = Hashtbl.replace counts kind (total, count + 1) in
-           (Js_branch_case.Case (kind, ix), branch_data))
+           (JS_branch_case.Case (kind, ix), branch_data))
     |> Result.ok
 
   let make_canonical_data_if_error
@@ -165,7 +165,7 @@ module Update
       type exec_data = cmd_report executed_cmd_data [@@deriving yojson]
     end) =
 struct
-  open PartialTypes
+  open PartialCommandTypes
   open Types
   module Finish = Finish (V)
 
@@ -179,8 +179,8 @@ struct
 
   let resolve_case
       ?gil_case
-      (kind : Js_branch_case.kind option)
-      (prev_case : Js_branch_case.case) =
+      (kind : JS_branch_case.kind option)
+      (prev_case : JS_branch_case.case) =
     match (kind, prev_case) with
     | None, prev_case -> Ok prev_case
     | Some prev_kind, Unknown -> (
@@ -188,7 +188,7 @@ struct
         | IfElseKind | WhileLoopKind | ForLoopKind -> (
             match gil_case with
             | Some (Gil_syntax.Branch_case.GuardedGoto b) ->
-                Ok (Js_branch_case.bool_kind_to_case prev_kind b)
+                Ok (JS_branch_case.bool_kind_to_case prev_kind b)
             | _ -> Error "resolveCase expects a GuardedGoto gil case"))
     | Some _, _ -> Error "HORROR - branch kind is set with pre-existing case!"
 
@@ -339,7 +339,7 @@ struct
     let kind = annot.branch_kind in
     let++ case =
       match prev_kind_case with
-      | None -> Ok Js_branch_case.(Unknown)
+      | None -> Ok JS_branch_case.(Unknown)
       | Some (prev_kind, prev_case) ->
           resolve_case ?gil_case prev_kind prev_case
     in
@@ -378,7 +378,7 @@ module Make
     end) =
 struct
   open Types
-  include PartialTypes
+  include PartialCommandTypes
   module Update = Update (V) (Types)
 
   let init () = Hashtbl.create 0

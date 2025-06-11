@@ -1,11 +1,10 @@
 type cmd_kind =
+  | Context of bool
+  | Internal  (** Is this command from an internal/imported JSIL file? *)
   | Hidden
   | Normal of bool  (** Is this the final JSIL command for the JS statement? *)
   | Exception  (** Is this command raising an exception? *)
-  | Return
-  | Context of bool
-      (** Is this command the last in a seq of evnironment changes? *)
-  | Internal  (** Is this command from an internal/imported JSIL file? *)
+  | Return  (** Is this command the last in a seq of evnironment changes? *)
   | Unknown
 [@@deriving yojson, eq, show]
 
@@ -16,7 +15,7 @@ type t = {
   loop_info : string list;
   cmd_kind : cmd_kind; [@default Normal false]
   nest_kind : nest_kind option;
-  branch_kind : Javert_utils.Js_branch_case.kind option;
+  branch_kind : Javert_utils.JS_branch_case.kind option;
   display : string option;
 }
 [@@deriving yojson, make, eq]

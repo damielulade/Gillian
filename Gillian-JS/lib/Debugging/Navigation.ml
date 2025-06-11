@@ -4,7 +4,7 @@ open Gillian.Debugger
 open Gillian.Debugger.Lifter
 open Gillian.Debugger.Utils.Exec_map
 open LifterTypes
-open Javert_utils.Js_branch_case
+open Javert_utils.JS_branch_case
 open Javert_utils
 module PC = Js2jsil_lib.JS2GIL_ParserAndCompiler
 
@@ -13,7 +13,7 @@ module HelperFuncs
     (V : Gillian.Abstraction.Verifier.S with type annot = PC.Annot.t)
     (State : State.S with type gil_state_t = Gil.Lifter.t)
     (Utils : sig
-      val package_case : Js_branch_case.t -> Packaged.branch_case * string
+      val package_case : JS_branch_case.t -> Packaged.branch_case * string
       val path_of_id : id -> State.t -> Gil_syntax.Branch_case.path
     end)
     (Types : sig
@@ -23,14 +23,14 @@ module HelperFuncs
       type exec_data = cmd_report executed_cmd_data [@@deriving yojson]
       type _ Effect.t += Step : step_args -> exec_data Effect.t
     end)
-    (InitOrHandle : sig
+    (CommandHandler : sig
       val f :
         state:State.t ->
         ?prev_id:id ->
         ?gil_case:Gil_syntax.Branch_case.t ->
         Types.exec_data ->
         ( id * Gil_syntax.Branch_case.t option,
-          (id, Js_branch_case.t, cmd_data, branch_data) node )
+          (id, JS_branch_case.t, cmd_data, branch_data) node )
         Either.t
     end) =
 struct
@@ -86,7 +86,7 @@ struct
     let rec aux id case =
       let path = path_of_id id state in
       let exec_data = Effect.perform (Step (Some id, case, path)) in
-      match InitOrHandle.f ~state ~prev_id:id ?gil_case:case exec_data with
+      match CommandHandler.f ~state ~prev_id:id ?gil_case:case exec_data with
       | Either.Left (id, case) -> aux id case
       | Either.Right map -> map.data.id
     in
@@ -127,7 +127,7 @@ struct
   let step state id case =
     let () =
       Logging.log (fun m ->
-          m "Stepping %a %a" pp_id id (pp_option Js_branch_case.pp) case)
+          m "Stepping %a %a" pp_id id (pp_option JS_branch_case.pp) case)
     in
     match find_next state id case with
     | Either.Left next -> next
@@ -181,7 +181,7 @@ module Make
     (V : Gillian.Abstraction.Verifier.S with type annot = PC.Annot.t)
     (State : State.S with type gil_state_t = Gil.Lifter.t)
     (Utils : sig
-      val package_case : Js_branch_case.t -> Packaged.branch_case * string
+      val package_case : JS_branch_case.t -> Packaged.branch_case * string
       val path_of_id : id -> State.t -> Gil_syntax.Branch_case.path
     end)
     (Types : sig
@@ -191,25 +191,25 @@ module Make
       type exec_data = cmd_report executed_cmd_data [@@deriving yojson]
       type _ Effect.t += Step : step_args -> exec_data Effect.t
     end)
-    (InitOrHandle : sig
+    (CommandHandler : sig
       val f :
         state:State.t ->
         ?prev_id:id ->
         ?gil_case:Gil_syntax.Branch_case.t ->
         Types.exec_data ->
         ( id * Gil_syntax.Branch_case.t option,
-          (id, Js_branch_case.t, cmd_data, branch_data) node )
+          (id, JS_branch_case.t, cmd_data, branch_data) node )
         Either.t
     end) =
 struct
   open State
-  include HelperFuncs (Gil) (V) (State) (Utils) (Types) (InitOrHandle)
+  include HelperFuncs (Gil) (V) (State) (Utils) (Types) (CommandHandler)
 
   let step_branch state id case =
     (* let { map; _ } = state in *)
     let case =
       let+ json = case in
-      json |> Js_branch_case.of_yojson |> Result.get_ok
+      json |> JS_branch_case.of_yojson |> Result.get_ok
     in
     let cmd = get_exn state.map id in
     (* Bodge: step in if on func exit placeholder *)
